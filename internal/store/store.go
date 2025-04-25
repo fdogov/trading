@@ -2,83 +2,84 @@ package store
 
 import (
 	"context"
+
 	"github.com/shopspring/decimal"
 
 	"github.com/fdogov/trading/internal/entity"
 	"github.com/google/uuid"
 )
 
-// AccountStore определяет интерфейс для работы с хранилищем аккаунтов
+// AccountStore defines the interface for working with account storage
 type AccountStore interface {
-	// Create создает новый аккаунт
+	// Create creates a new account
 	Create(ctx context.Context, account *entity.Account) error
 
-	// GetByID получает аккаунт по ID
+	// GetByID gets an account by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Account, error)
 
-	// GetByExtID получает аккаунт по внешнему ID
+	// GetByExtID gets an account by external ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Account, error)
 
-	// GetByUserID получает аккаунты пользователя по UserID
+	// GetByUserID gets user accounts by UserID
 	GetByUserID(ctx context.Context, userID string) ([]*entity.Account, error)
 
-	// UpdateBalance обновляет баланс аккаунта
+	// UpdateBalance updates the account balance
 	UpdateBalance(ctx context.Context, id uuid.UUID, amount decimal.Decimal) error
 }
 
-// OrderStore определяет интерфейс для работы с хранилищем заказов
+// OrderStore defines the interface for working with order storage
 type OrderStore interface {
-	// Create создает новый заказ
+	// Create creates a new order
 	Create(ctx context.Context, order *entity.Order) error
 
-	// GetByID получает заказ по ID
+	// GetByID gets an order by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Order, error)
 
-	// GetByExtID получает заказ по внешнему ID
+	// GetByExtID gets an order by external ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Order, error)
 
-	// Update обновляет заказ
+	// Update updates an order
 	Update(ctx context.Context, order *entity.Order) error
 
-	// UpdateStatus обновляет статус заказа
+	// UpdateStatus updates the order status
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.OrderStatus) error
 }
 
-// DepositStore определяет интерфейс для работы с хранилищем депозитов
+// DepositStore defines the interface for working with deposit storage
 type DepositStore interface {
-	// Create создает новый депозит
+	// Create creates a new deposit
 	Create(ctx context.Context, deposit *entity.Deposit) error
 
-	// GetByID получает депозит по ID
+	// GetByID gets a deposit by ID
 	GetByID(ctx context.Context, id uuid.UUID) (*entity.Deposit, error)
 
-	// GetByExtID получает депозит по внешнему ID
+	// GetByExtID gets a deposit by external ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Deposit, error)
 
-	// GetByIdempotencyKey получает депозит по ключу идемпотентности
+	// GetByIdempotencyKey gets a deposit by idempotency key
 	GetByIdempotencyKey(ctx context.Context, key string) (*entity.Deposit, error)
 
-	// Update обновляет депозит
+	// Update updates a deposit
 	Update(ctx context.Context, deposit *entity.Deposit) error
 
-	// UpdateStatus обновляет статус депозита
+	// UpdateStatus updates the deposit status
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.DepositStatus) error
 
-	// UpdateExternalData обновляет внешний ID и статус депозита
+	// UpdateExternalData updates the external ID and status of a deposit
 	UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error
 }
 
-// EventStore определяет интерфейс для работы с хранилищем событий
+// EventStore defines the interface for working with event storage
 type EventStore interface {
-	// Create создает новое событие
+	// Create creates a new event
 	Create(ctx context.Context, event *entity.Event) error
 
-	// GetByEventID получает событие по внешнему идентификатору
+	// GetByEventID gets an event by external identifier
 	GetByEventID(ctx context.Context, id string, eventType entity.EventType) (*entity.Event, error)
 }
 
-// DBTransactor определяет интерфейс для работы с транзакциями
+// DBTransactor defines the interface for working with transactions
 type DBTransactor interface {
-	// Exec выполняет функцию в транзакции
+	// Exec executes a function within a transaction
 	Exec(ctx context.Context, fn func(ctx context.Context) error) error
 }

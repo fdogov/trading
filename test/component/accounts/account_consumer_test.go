@@ -22,54 +22,54 @@ import (
 	"github.com/fdogov/trading/test/component/suite"
 )
 
-// TestData содержит все данные и состояния для каждого теста
+// TestData contains all data and states for each test
 type TestData struct {
-	// Контекст теста
+	// Test context
 	ctx context.Context
 	t   *testing.T
 
-	// Компонент, который тестируем
+	// Component being tested
 	consumer *accounts.AccountConsumer
 
-	// Хранилище (реальное из suite)
+	// Store (real from suite)
 	accountStore store.AccountStore
 
-	// Тестовые данные
+	// Test data
 	userID       string
 	extAccountID string
 	currency     string
 
-	// Сохраненные объекты для проверки
+	// Saved objects for verification
 	savedAccount *entity.Account
 
-	// Сообщение для обработки
+	// Message to process
 	message []byte
 	error   error
 }
 
-// TestCase определяет тест-кейс для TDD тестирования
+// TestCase defines a test case for TDD testing
 type TestCase struct {
 	name  string
-	given func(td *TestData)            // Given: начальное состояние и сообщение
-	when  func(td *TestData) error      // When: выполнение действия (обработка сообщения)
-	then  func(td *TestData, err error) // Then: проверка результатов
+	given func(td *TestData)            // Given: initial state and message
+	when  func(td *TestData) error      // When: performing an action (message processing)
+	then  func(td *TestData, err error) // Then: checking results
 }
 
-// AccountConsumerSuite реализует набор тестов для обработчика событий аккаунтов
+// AccountConsumerSuite implements a set of tests for the account event handler
 type AccountConsumerSuite struct {
 	suite.DBSuite
 	testLogger *zap.Logger
 }
 
-// SetupSuite инициализирует зависимости для всех тестов
+// SetupSuite initializes dependencies for all tests
 func (s *AccountConsumerSuite) SetupSuite() {
 	s.DBSuite.SetupSuite()
 
-	// Инициализируем тестовый логгер
+	// Initialize test logger
 	s.testLogger = zaptest.NewLogger(s.T())
 }
 
-// createAccountEvent создает стандартное событие создания аккаунта
+// createAccountEvent creates a standard account creation event
 func createAccountEvent(userID, extAccountID, currency string) []byte {
 	event := originationkafkav1.AccountEvent{
 		UserId:       userID,
@@ -81,17 +81,17 @@ func createAccountEvent(userID, extAccountID, currency string) []byte {
 	return data
 }
 
-// createTestData создает тестовые данные для каждого теста
+// createTestData creates test data for each test
 func (s *AccountConsumerSuite) createTestData() *TestData {
-	// Инициализация контекста
+	// Initialize context
 	ctx := helpers.TestContext()
 
-	// Генерация ID для теста
+	// Generate IDs for test
 	userID := uuid.NewString()
 	extAccountID := uuid.NewString()
 	currency := "USD"
 
-	// Создание компонента для тестирования с реальным хранилищем
+	// Create component for testing with real storage
 	consumer := accounts.NewAccountConsumer(s.AccountStore, s.testLogger.Named("account_consumer"))
 
 	return &TestData{
@@ -102,30 +102,30 @@ func (s *AccountConsumerSuite) createTestData() *TestData {
 		userID:       userID,
 		extAccountID: extAccountID,
 		currency:     currency,
-		// Сообщение будет установлено в блоке given
+		// Message will be set in the given block
 	}
 }
 
-// TestAccountConsumer запускает все тестовые сценарии
+// TestAccountConsumer runs all test scenarios
 func (s *AccountConsumerSuite) TestAccountConsumer() {
-	// Определение тестовых сценариев
+	// Define test scenarios
 	testCases := []TestCase{
-		// 1. Успешное создание аккаунта
+		// 1. Successful account creation
 		{
-			name: "Успешное создание аккаунта",
+			name: "Successful account creation",
 			given: func(td *TestData) {
-				// Given: создаем событие для обработки
+				// Given: create an event for processing
 				td.message = createAccountEvent(td.userID, td.extAccountID, td.currency)
 			},
 			when: func(td *TestData) error {
-				// When: вызываем обработчик события
+				// When: call the event handler
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Then: проверяем результаты
+				// Then: check the results
 				require.NoError(td.t, err)
 
-				// Получаем аккаунт из БД для проверки
+				// Get the account from DB for verification
 				account, err := td.accountStore.GetByExtID(td.ctx, td.extAccountID)
 				require.NoError(td.t, err)
 				assert.NotNil(td.t, account)
@@ -137,11 +137,11 @@ func (s *AccountConsumerSuite) TestAccountConsumer() {
 			},
 		},
 
-		// 2. Повторное получение того же события (идемпотентность)
+		// 2. Receiving the same event again (idempotence)
 		{
-			name: "Повторное получение того же события (идемпотентность)",
+			name: "Receiving the same event again (idempotence)",
 			given: func(td *TestData) {
-				// Given: аккаунт уже существует
+				// Given: account already exists
 				account := &entity.Account{
 					ID:        uuid.New(),
 					UserID:    td.userID,
@@ -154,60 +154,60 @@ func (s *AccountConsumerSuite) TestAccountConsumer() {
 				}
 				td.savedAccount = helpers.CreateAccountWithParams(td.ctx, td.t, td.accountStore, account)
 
-				// Создаем сообщение с тем же extAccountID
+				// Create message with the same extAccountID
 				td.message = createAccountEvent(td.userID, td.extAccountID, td.currency)
 			},
 			when: func(td *TestData) error {
-				// When: вызываем обработчик события повторно
+				// When: call the event handler again
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Then: операция должна завершиться успешно (идемпотентность)
+				// Then: operation should complete successfully (idempotence)
 				require.NoError(td.t, err)
 
-				// Проверяем, что не был создан новый аккаунт
+				// Check that no new account was created
 				accounts, err := td.accountStore.GetByUserID(td.ctx, td.userID)
 				require.NoError(td.t, err)
-				assert.Len(td.t, accounts, 1, "Должен быть только один аккаунт")
-				assert.Equal(td.t, td.savedAccount.ID, accounts[0].ID, "ID аккаунта не должен измениться")
+				assert.Len(td.t, accounts, 1, "There should be only one account")
+				assert.Equal(td.t, td.savedAccount.ID, accounts[0].ID, "Account ID should not change")
 			},
 		},
 
-		// 3. Ошибка десериализации сообщения
+		// 3. Message deserialization error
 		{
-			name: "Ошибка десериализации сообщения",
+			name: "Message deserialization error",
 			given: func(td *TestData) {
-				// Given: некорректное сообщение
+				// Given: invalid message
 				td.message = []byte(`{"invalid_json": ]`)
 			},
 			when: func(td *TestData) error {
-				// When: вызываем обработчик события
+				// When: call the event handler
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Then: должна быть ошибка десериализации
+				// Then: there should be a deserialization error
 				require.Error(td.t, err)
 				assert.Contains(td.t, err.Error(), "failed to unmarshal")
 			},
 		},
 
-		// 4. Создание аккаунта с другой валютой
+		// 4. Creating an account with different currency
 		{
-			name: "Создание аккаунта с другой валютой",
+			name: "Creating an account with different currency",
 			given: func(td *TestData) {
-				// Given: создаем событие с другой валютой
+				// Given: create an event with different currency
 				td.currency = "EUR"
 				td.message = createAccountEvent(td.userID, td.extAccountID, td.currency)
 			},
 			when: func(td *TestData) error {
-				// When: вызываем обработчик события
+				// When: call the event handler
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Then: проверяем результаты
+				// Then: check the results
 				require.NoError(td.t, err)
 
-				// Получаем аккаунт из БД для проверки
+				// Get the account from DB for verification
 				account, err := td.accountStore.GetByExtID(td.ctx, td.extAccountID)
 				require.NoError(td.t, err)
 				assert.NotNil(td.t, account)
@@ -215,15 +215,15 @@ func (s *AccountConsumerSuite) TestAccountConsumer() {
 			},
 		},
 
-		// 5. Создание аккаунта для существующего пользователя (второй аккаунт)
+		// 5. Creating a second account for an existing user
 		{
-			name: "Создание второго аккаунта для существующего пользователя",
+			name: "Creating a second account for an existing user",
 			given: func(td *TestData) {
-				// Given: у пользователя уже есть один аккаунт
+				// Given: user already has one account
 				existingAccount := &entity.Account{
 					ID:        uuid.New(),
 					UserID:    td.userID,
-					ExtID:     uuid.NewString(), // Другой внешний ID
+					ExtID:     uuid.NewString(), // Different external ID
 					Balance:   decimal.NewFromInt(0),
 					Currency:  "USD",
 					Status:    entity.AccountStatusActive,
@@ -232,23 +232,23 @@ func (s *AccountConsumerSuite) TestAccountConsumer() {
 				}
 				helpers.CreateAccountWithParams(td.ctx, td.t, td.accountStore, existingAccount)
 
-				// Создаем сообщение для нового аккаунта с тем же userID
+				// Create message for a new account with the same userID
 				td.message = createAccountEvent(td.userID, td.extAccountID, td.currency)
 			},
 			when: func(td *TestData) error {
-				// When: вызываем обработчик события
+				// When: call the event handler
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Then: операция должна завершиться успешно
+				// Then: operation should complete successfully
 				require.NoError(td.t, err)
 
-				// Проверяем, что создан второй аккаунт
+				// Check that a second account was created
 				accounts, err := td.accountStore.GetByUserID(td.ctx, td.userID)
 				require.NoError(td.t, err)
-				assert.Len(td.t, accounts, 2, "Должно быть два аккаунта")
+				assert.Len(td.t, accounts, 2, "There should be two accounts")
 
-				// Проверяем, что новый аккаунт существует
+				// Check that the new account exists
 				found := false
 				for _, acc := range accounts {
 					if acc.ExtID == td.extAccountID {
@@ -256,32 +256,32 @@ func (s *AccountConsumerSuite) TestAccountConsumer() {
 						break
 					}
 				}
-				assert.True(td.t, found, "Новый аккаунт должен быть создан")
+				assert.True(td.t, found, "New account should be created")
 			},
 		},
 	}
 
-	// Запуск всех тестовых сценариев
+	// Run all test scenarios
 	for _, tc := range testCases {
 		s.Run(tc.name, func() {
-			// Сбрасываем состояние для каждого тестового сценария
+			// Reset state for each test scenario
 			s.SetupTest()
 
-			// Создаем тестовые данные
+			// Create test data
 			td := s.createTestData()
 
-			// Given: устанавливаем начальное состояние и сообщение
+			// Given: set initial state and message
 			tc.given(td)
-			// When: выполняем действие
+			// When: perform action
 			err := tc.when(td)
-			// Then: проверяем результаты
+			// Then: check results
 			tc.then(td, err)
 		})
 	}
 }
 
 func TestAccountConsumerSuite(t *testing.T) {
-	// Пропускаем тесты при коротком запуске тестов
+	// Skip tests during short test run
 	suite.SkipIfShortTest(t)
 
 	testifysuite.Run(t, new(AccountConsumerSuite))
