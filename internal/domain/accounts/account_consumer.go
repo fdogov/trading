@@ -16,16 +16,16 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// ErrInvalidAccountEvent представляет ошибку невалидного события аккаунта
+// ErrInvalidAccountEvent represents an invalid account event error
 var ErrInvalidAccountEvent = errors.New("invalid account event")
 
-// AccountConsumer обрабатывает события создания аккаунтов из Kafka
+// AccountConsumer processes account creation events from Kafka
 type AccountConsumer struct {
 	accountStore store.AccountStore
 	logger       *zap.Logger
 }
 
-// NewAccountConsumer создает новый экземпляр AccountConsumer
+// NewAccountConsumer creates a new AccountConsumer instance
 func NewAccountConsumer(accountStore store.AccountStore, logger *zap.Logger) *AccountConsumer {
 	return &AccountConsumer{
 		accountStore: accountStore,
@@ -33,7 +33,7 @@ func NewAccountConsumer(accountStore store.AccountStore, logger *zap.Logger) *Ac
 	}
 }
 
-// ProcessMessage обрабатывает сообщение из Kafka
+// ProcessMessage processes a message from Kafka
 func (c *AccountConsumer) ProcessMessage(ctx context.Context, message []byte) error {
 	if len(message) == 0 {
 		return fmt.Errorf("empty message")
@@ -42,7 +42,7 @@ func (c *AccountConsumer) ProcessMessage(ctx context.Context, message []byte) er
 	logger := c.logger.With(zap.String("operation", "process_account_event"))
 	startTime := time.Now()
 
-	// Разбор сообщения
+	// Parse the message
 	var event originationkafkav1.AccountEvent
 	if err := json.Unmarshal(message, &event); err != nil {
 		logger.Error("Failed to unmarshal account event",
@@ -51,13 +51,13 @@ func (c *AccountConsumer) ProcessMessage(ctx context.Context, message []byte) er
 		return fmt.Errorf("failed to unmarshal account event: %w", err)
 	}
 
-	// Обогащение логгера контекстной информацией
+	// Enrich logger with contextual information
 	logger = logger.With(
 		zap.String("ext_account_id", event.ExtAccountId),
 		zap.String("currency", event.Currency),
 	)
 
-	// Валидация события
+	// Validate the event
 	if err := c.validateAccountEvent(&event); err != nil {
 		logger.Error("Invalid account event", zap.Error(err))
 		return fmt.Errorf("%w: %v", ErrInvalidAccountEvent, err)
@@ -66,7 +66,7 @@ func (c *AccountConsumer) ProcessMessage(ctx context.Context, message []byte) er
 
 	logger.Info("Received valid account event")
 
-	// Обработка события
+	// Process the event
 	if err := c.processAccountEvent(ctx, &event, logger); err != nil {
 		logger.Error("Failed to process account event", zap.Error(err))
 		return err
@@ -78,7 +78,7 @@ func (c *AccountConsumer) ProcessMessage(ctx context.Context, message []byte) er
 	return nil
 }
 
-// validateAccountEvent проверяет валидность события аккаунта
+// validateAccountEvent checks if the account event is valid
 func (c *AccountConsumer) validateAccountEvent(event *originationkafkav1.AccountEvent) error {
 	if event.ExtAccountId == "" {
 		return errors.New("empty ext_account_id")
@@ -95,16 +95,16 @@ func (c *AccountConsumer) validateAccountEvent(event *originationkafkav1.Account
 	return nil
 }
 
-// processAccountEvent обрабатывает событие аккаунта
+// processAccountEvent processes an account event
 func (c *AccountConsumer) processAccountEvent(
 	ctx context.Context,
 	event *originationkafkav1.AccountEvent,
 	logger *zap.Logger,
 ) error {
-	// Проверяем, существует ли уже аккаунт с таким ext_id
+	// Check if an account with this ext_id already exists
 	existingAccount, err := c.accountStore.GetByExtID(ctx, event.ExtAccountId)
 	if err == nil {
-		// Аккаунт уже существует
+		// Account already exists
 		logger.Info("Account already exists, skipping creation",
 			zap.String("account_id", existingAccount.ID.String()),
 			zap.String("ext_id", existingAccount.ExtID))
@@ -112,12 +112,12 @@ func (c *AccountConsumer) processAccountEvent(
 	}
 
 	if !errors.Is(err, entity.ErrNotFound) {
-		// Произошла ошибка при проверке
+		// An error occurred during the check
 		logger.Error("Failed to check existing account", zap.Error(err))
 		return fmt.Errorf("failed to check existing account: %w", err)
 	}
 
-	// Создаем новый аккаунт
+	// Create a new account
 	account, err := c.createAccount(ctx, event)
 	if err != nil {
 		logger.Error("Failed to create account", zap.Error(err))
@@ -131,13 +131,13 @@ func (c *AccountConsumer) processAccountEvent(
 	return nil
 }
 
-// createAccount создает новый аккаунт на основе события
+// createAccount creates a new account based on the event
 func (c *AccountConsumer) createAccount(
 	ctx context.Context,
 	event *originationkafkav1.AccountEvent,
 ) (*entity.Account, error) {
 	account := c.convertEventToAccount(event)
-	// Сохраняем аккаунт в хранилище
+	// Save the account to the store
 	if err := c.accountStore.Create(ctx, account); err != nil {
 		return nil, err
 	}

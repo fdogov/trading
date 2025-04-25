@@ -16,14 +16,14 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// OrderConsumer обрабатывает события заказов из Kafka
+// OrderConsumer processes order events from Kafka
 type OrderConsumer struct {
 	orderStore   store.OrderStore
 	accountStore store.AccountStore
 	dbTransactor store.DBTransactor
 }
 
-// NewOrderConsumer создает новый экземпляр OrderConsumer
+// NewOrderConsumer creates a new OrderConsumer instance
 func NewOrderConsumer(
 	orderStore store.OrderStore,
 	accountStore store.AccountStore,
@@ -36,14 +36,14 @@ func NewOrderConsumer(
 	}
 }
 
-// ProcessMessage обрабатывает сообщение из Kafka
+// ProcessMessage processes a message from Kafka
 func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) error {
 	var event partnerconsumerkafkav1.OrderEvent
 	if err := json.Unmarshal(message, &event); err != nil {
 		return fmt.Errorf("failed to unmarshal order event: %w", err)
 	}
 
-	// Добавляем trace ID из внешнего ID события
+	// Add trace ID from the event's external ID
 	ctx = logger.ContextWithTraceID(ctx, event.ExtId)
 
 	logger.Info(ctx, "Received order event",
@@ -51,26 +51,26 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 		zap.String("status", event.Status.String()),
 		zap.String("symbol", event.Symbol))
 
-	// Получаем заказ по внешнему ID
+	// Get the order by external ID
 	order, err := c.orderStore.GetByExtID(ctx, event.ExtId)
 	if err != nil {
 		if err != entity.ErrNotFound {
 			return fmt.Errorf("failed to get order by ext ID: %w", err)
 		}
 
-		// Если заказ не найден, возможно он был создан извне нашей системы
-		// Создаем запись о заказе в нашей системе
+		// If the order is not found, it might have been created outside our system
+		// Create an order record in our system
 
-		// Сначала получаем аккаунт по external account ID
+		// First get the account by external account ID
 		account, err := c.accountStore.GetByExtID(ctx, event.ExtAccountId)
 		if err != nil {
 			return fmt.Errorf("failed to get account by ext ID: %w", err)
 		}
 
-		// Обновляем контекст с user_id
+		// Update context with user_id
 		ctx = logger.ContextWithUserID(ctx, account.UserID)
 
-		// Преобразуем статус
+		// Convert status
 		var status entity.OrderStatus
 		switch event.Status {
 		case partnerconsumerkafkav1.OrderStatus_ORDER_STATUS_PENDING:
@@ -83,13 +83,13 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 			status = entity.OrderStatusNew
 		}
 
-		// Преобразуем сумму
+		// Convert amount
 		amount, err := decimal.NewFromString(event.Amount.Value)
 		if err != nil {
 			return fmt.Errorf("failed to parse amount: %w", err)
 		}
 
-		// Создаем заказ
+		// Create order
 		now := time.Now()
 		order = &entity.Order{
 			ID:           uuid.New(),
@@ -97,9 +97,9 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 			AccountID:    account.ID,
 			InstrumentID: event.Symbol,
 			Amount:       amount,
-			Quantity:     decimal.Zero,           // Пока не знаем точное количество
-			OrderType:    entity.OrderTypeMarket, // Предполагаем, что это рыночный заказ
-			Side:         entity.OrderSideBuy,    // Предполагаем сторону (может уточнить позже)
+			Quantity:     decimal.Zero,           // We don't know the exact quantity yet
+			OrderType:    entity.OrderTypeMarket, // Assume it's a market order
+			Side:         entity.OrderSideBuy,    // Assume side (can be refined later)
 			Status:       status,
 			Description:  fmt.Sprintf("Order for %s (ext_id: %s)", event.Symbol, event.ExtId),
 			ExtID:        event.ExtId,
@@ -122,9 +122,9 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 		return nil
 	}
 
-	// Если заказ найден, обновляем его статус
+	// If the order is found, update its status
 
-	// Преобразуем статус из события
+	// Convert status from the event
 	var status entity.OrderStatus
 	switch event.Status {
 	case partnerconsumerkafkav1.OrderStatus_ORDER_STATUS_PENDING:
@@ -137,16 +137,16 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 		status = entity.OrderStatusNew
 	}
 
-	// Если статус не изменился, ничего не делаем
+	// If status hasn't changed, do nothing
 	if order.Status == status {
 		logger.Info(ctx, "Order status hasn't changed, skipping update",
 			zap.String("status", string(status)))
 		return nil
 	}
 
-	// Обновляем статус и, если необходимо, обрабатываем возврат средств
+	// Update status and process fund return if necessary
 	err = c.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Обновляем статус заказа
+		// Update order status
 		err := c.orderStore.UpdateStatus(txCtx, order.ID, status)
 		if err != nil {
 			return fmt.Errorf("failed to update order status: %w", err)
@@ -157,7 +157,7 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 			zap.String("old_status", string(order.Status)),
 			zap.String("new_status", string(status)))
 
-		// Если заказ провалился, но был покупка, возвращаем средства на счет
+		// If the order failed but was a buy, return funds to account
 		if status == entity.OrderStatusFailed && order.Status != entity.OrderStatusFailed && order.IsBuy() {
 			err := c.accountStore.UpdateBalance(txCtx, order.AccountID, order.Amount)
 			if err != nil {

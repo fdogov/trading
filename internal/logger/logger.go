@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	// TracingKey ключ для трейсинга
+	// TracingKey key for tracing
 	TracingKey          = "trace_id"
 	tracingIDContextKey = "trace_id_ctx_key"
 	spanIDContextKey    = "span_id_ctx_key"
@@ -19,10 +19,10 @@ const (
 
 var (
 	log      *zap.Logger
-	logMutex sync.Mutex // Для безопасной ленивой инициализации
+	logMutex sync.Mutex // For safe lazy initialization
 )
 
-// InitLogger инициализирует глобальный логгер
+// InitLogger initializes the global logger
 func InitLogger(cfg config.Logger) (*zap.Logger, error) {
 	var level zapcore.Level
 	switch cfg.Level {
@@ -74,20 +74,20 @@ func InitLogger(cfg config.Logger) (*zap.Logger, error) {
 	return logger, nil
 }
 
-// SetLogger устанавливает внешний экземпляр логгера (полезно для тестов)
+// SetLogger sets an external logger instance (useful for tests)
 func SetLogger(logger *zap.Logger) {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 	log = logger
 }
 
-// ensureLogger гарантирует, что логгер инициализирован
+// ensureLogger ensures the logger is initialized
 func ensureLogger() {
 	logMutex.Lock()
 	defer logMutex.Unlock()
 
 	if log == nil {
-		// Создаем простой логгер для тестов, который выводит в консоль
+		// Create a simple logger for tests that outputs to console
 		config := zap.NewDevelopmentConfig()
 		config.Level = zap.NewAtomicLevelAt(zapcore.InfoLevel)
 		logger, _ := config.Build()
@@ -95,19 +95,19 @@ func ensureLogger() {
 	}
 }
 
-// Get возвращает глобальный логгер
+// Get returns the global logger
 func Get() *zap.Logger {
 	ensureLogger()
 	return log
 }
 
-// With создаёт новый логгер с указанными полями
+// With creates a new logger with the specified fields
 func With(fields ...zap.Field) *zap.Logger {
 	ensureLogger()
 	return log.With(fields...)
 }
 
-// FromContext возвращает логгер с информацией из контекста (trace ID, span ID и т.д.)
+// FromContext returns a logger with information from the context (trace ID, span ID, etc.)
 func FromContext(ctx context.Context) *zap.Logger {
 	ensureLogger()
 
@@ -117,17 +117,17 @@ func FromContext(ctx context.Context) *zap.Logger {
 		return logger
 	}
 
-	// Добавляем trace ID, если он есть в контексте
+	// Add trace ID if it exists in the context
 	if traceID := TraceIDFromContext(ctx); traceID != "" {
 		logger = logger.With(zap.String(TracingKey, traceID))
 	}
 
-	// Добавляем span ID, если он есть в контексте
+	// Add span ID if it exists in the context
 	if spanID := SpanIDFromContext(ctx); spanID != "" {
 		logger = logger.With(zap.String("span_id", spanID))
 	}
 
-	// Добавляем user ID, если он есть в контексте
+	// Add user ID if it exists in the context
 	if userID := UserIDFromContext(ctx); userID != "" {
 		logger = logger.With(zap.String("user_id", userID))
 	}
@@ -135,12 +135,12 @@ func FromContext(ctx context.Context) *zap.Logger {
 	return logger
 }
 
-// ContextWithTraceID добавляет trace ID в контекст
+// ContextWithTraceID adds trace ID to the context
 func ContextWithTraceID(ctx context.Context, traceID string) context.Context {
 	return context.WithValue(ctx, tracingIDContextKey, traceID)
 }
 
-// TraceIDFromContext извлекает trace ID из контекста
+// TraceIDFromContext extracts trace ID from the context
 func TraceIDFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -151,12 +151,12 @@ func TraceIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// ContextWithSpanID добавляет span ID в контекст
+// ContextWithSpanID adds span ID to the context
 func ContextWithSpanID(ctx context.Context, spanID string) context.Context {
 	return context.WithValue(ctx, spanIDContextKey, spanID)
 }
 
-// SpanIDFromContext извлекает span ID из контекста
+// SpanIDFromContext extracts span ID from the context
 func SpanIDFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -167,12 +167,12 @@ func SpanIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// ContextWithUserID добавляет user ID в контекст
+// ContextWithUserID adds user ID to the context
 func ContextWithUserID(ctx context.Context, userID string) context.Context {
 	return context.WithValue(ctx, userIDContextKey, userID)
 }
 
-// UserIDFromContext извлекает user ID из контекста
+// UserIDFromContext extracts user ID from the context
 func UserIDFromContext(ctx context.Context) string {
 	if ctx == nil {
 		return ""
@@ -183,27 +183,27 @@ func UserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// Debug логирует сообщение с уровнем Debug, используя контекст
+// Debug logs a message with Debug level, using context
 func Debug(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Debug(msg, fields...)
 }
 
-// Info логирует сообщение с уровнем Info, используя контекст
+// Info logs a message with Info level, using context
 func Info(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Info(msg, fields...)
 }
 
-// Warn логирует сообщение с уровнем Warn, используя контекст
+// Warn logs a message with Warn level, using context
 func Warn(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Warn(msg, fields...)
 }
 
-// Error логирует сообщение с уровнем Error, используя контекст
+// Error logs a message with Error level, using context
 func Error(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Error(msg, fields...)
 }
 
-// Fatal логирует сообщение с уровнем Fatal, используя контекст
+// Fatal logs a message with Fatal level, using context
 func Fatal(ctx context.Context, msg string, fields ...zap.Field) {
 	FromContext(ctx).Fatal(msg, fields...)
 }

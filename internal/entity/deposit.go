@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Deposit представляет депозит средств на аккаунт
+// Deposit represents a deposit of funds to an account
 type Deposit struct {
 	ID             uuid.UUID       `db:"id"`
 	AccountID      uuid.UUID       `db:"account_id"`

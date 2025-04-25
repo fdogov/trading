@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Account представляет торговый аккаунт пользователя
+// Account represents a user's trading account
 type Account struct {
 	ID        uuid.UUID       `db:"id"`
 	UserID    string          `db:"user_id"`

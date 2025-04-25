@@ -3,6 +3,7 @@ package dependency
 import (
 	"context"
 	"fmt"
+
 	_type "github.com/fdogov/contracts/gen/go/google/type"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
@@ -13,17 +14,17 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_partner_proxy_finance_client.go -package=mocks github.com/fdogov/trading/internal/dependency PartnerProxyFinanceClient
 
-// PartnerProxyFinanceClient представляет интерфейс для взаимодействия с финансовым сервисом PartnerProxy
+// PartnerProxyFinanceClient represents an interface for interacting with the PartnerProxy finance service
 type PartnerProxyFinanceClient interface {
 	CreateDeposit(ctx context.Context, deposit *entity.Deposit, extAccountID string) (*DepositResponse, error)
 }
 
-// partnerProxyFinanceClient реализует интерфейс PartnerProxyFinanceClient
+// partnerProxyFinanceClient implements the PartnerProxyFinanceClient interface
 type partnerProxyFinanceClient struct {
 	client partnerproxyv1.FinanceServiceClient
 }
 
-// NewPartnerProxyFinanceClient создает новый экземпляр PartnerProxyFinanceClient
+// NewPartnerProxyFinanceClient creates a new instance of PartnerProxyFinanceClient
 func NewPartnerProxyFinanceClient(cfg config.Dependency) (PartnerProxyFinanceClient, error) {
 	conn, err := NewGrpcConn(cfg)
 	if err != nil {
@@ -35,18 +36,18 @@ func NewPartnerProxyFinanceClient(cfg config.Dependency) (PartnerProxyFinanceCli
 	}, nil
 }
 
-// CreateDeposit создает депозит через PartnerProxyFinanceClient
+// CreateDeposit creates a deposit through PartnerProxyFinanceClient
 func (c *partnerProxyFinanceClient) CreateDeposit(
 	ctx context.Context,
 	deposit *entity.Deposit,
 	extAccountID string,
 ) (*DepositResponse, error) {
-	// Создаем прото-объект для decimal
+	// Create a proto object for decimal
 	amountDecimal := &_type.Decimal{
 		Value: deposit.Amount.String(),
 	}
 
-	// Отправляем запрос
+	// Send the request
 	resp, err := c.client.CreateDeposit(ctx, &partnerproxyv1.CreateDepositRequest{
 		IdempotencyKey: deposit.ID.String(),
 		ExtAccountId:   extAccountID,
@@ -58,7 +59,7 @@ func (c *partnerProxyFinanceClient) CreateDeposit(
 		return nil, fmt.Errorf("failed to create deposit: %w", err)
 	}
 
-	// Определяем статус депозита
+	// Determine deposit status
 	var status entity.DepositStatus
 	switch resp.Status {
 	case partnerproxyv1.DepositStatus_DEPOSIT_STATUS_PENDING:
@@ -77,7 +78,7 @@ func (c *partnerProxyFinanceClient) CreateDeposit(
 	}, nil
 }
 
-// DepositResponse представляет ответ от партнерского сервиса по депозиту
+// DepositResponse represents a response from the partner service for a deposit
 type DepositResponse struct {
 	ExtID  string
 	Status entity.DepositStatus

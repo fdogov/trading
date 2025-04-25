@@ -11,7 +11,7 @@ import (
 	"github.com/fdogov/trading/internal/config"
 )
 
-// NewGrpcConn создает новое gRPC соединение
+// NewGrpcConn creates a new gRPC connection
 func NewGrpcConn(cfg config.Dependency) (*grpc.ClientConn, error) {
 	keepAliveParams := keepalive.ClientParameters{
 		Time:                10 * time.Second,

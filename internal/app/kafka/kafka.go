@@ -15,12 +15,12 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// Consumer представляет интерфейс для обработки сообщений из Kafka
+// Consumer represents an interface for processing messages from Kafka
 type Consumer interface {
 	ProcessMessage(ctx context.Context, message []byte) error
 }
 
-// KafkaConsumers содержит все консьюмеры Kafka
+// KafkaConsumers contains all Kafka consumers
 type KafkaConsumers struct {
 	accountConsumer *accounts.AccountConsumer
 	depositConsumer *finance.DepositConsumer
@@ -31,7 +31,7 @@ type KafkaConsumers struct {
 	logger          *zap.Logger
 }
 
-// NewKafkaConsumers создает новый экземпляр KafkaConsumers
+// NewKafkaConsumers creates a new KafkaConsumers instance
 func NewKafkaConsumers(
 	accountStore store.AccountStore,
 	depositStore store.DepositStore,
@@ -51,21 +51,21 @@ func NewKafkaConsumers(
 	}
 }
 
-// Start запускает все консьюмеры Kafka
+// Start starts all Kafka consumers
 func (k *KafkaConsumers) Start(ctx context.Context, cfg config.Kafka) error {
-	// Создаем и запускаем читателей для каждого топика
+	// Create and start readers for each topic
 	accountReader := NewReader(cfg.Brokers, cfg.GroupID, cfg.AccountTopic)
 	depositReader := NewReader(cfg.Brokers, cfg.GroupID, cfg.DepositEventTopic)
 	orderReader := NewReader(cfg.Brokers, cfg.GroupID, cfg.OrderEventTopic)
 
-	// Устанавливаем логгер для каждого Reader
+	// Set logger for each Reader
 	accountReader.SetLogger(k.logger)
 	depositReader.SetLogger(k.logger)
 	orderReader.SetLogger(k.logger)
 
 	k.readers = append(k.readers, accountReader, depositReader, orderReader)
 
-	// Запускаем чтение сообщений для каждого читателя
+	// Start reading messages for each reader
 	if err := accountReader.Start(ctx); err != nil {
 		return fmt.Errorf("failed to start account reader: %w", err)
 	}
@@ -76,7 +76,7 @@ func (k *KafkaConsumers) Start(ctx context.Context, cfg config.Kafka) error {
 		return fmt.Errorf("failed to start order reader: %w", err)
 	}
 
-	// Запускаем обработчики сообщений
+	// Start message handlers
 	k.startMessageHandler(ctx, accountReader, k.accountConsumer, "account")
 	k.startMessageHandler(ctx, depositReader, k.depositConsumer, "deposit")
 	k.startMessageHandler(ctx, orderReader, k.orderConsumer, "order")
@@ -87,7 +87,7 @@ func (k *KafkaConsumers) Start(ctx context.Context, cfg config.Kafka) error {
 	return nil
 }
 
-// startMessageHandler запускает обработчик сообщений для конкретного читателя
+// startMessageHandler starts a message handler for a specific reader
 func (k *KafkaConsumers) startMessageHandler(ctx context.Context, reader *Reader, consumer Consumer, consumerName string) {
 	k.wg.Add(1)
 	go func() {
@@ -110,18 +110,18 @@ func (k *KafkaConsumers) startMessageHandler(ctx context.Context, reader *Reader
 	}()
 }
 
-// Stop останавливает все консьюмеры Kafka
+// Stop stops all Kafka consumers
 func (k *KafkaConsumers) Stop() {
 	close(k.shutdownCh)
 
-	// Закрываем все читатели
+	// Close all readers
 	for _, reader := range k.readers {
 		if err := reader.Close(); err != nil {
 			k.logger.Error("Error closing Kafka reader", zap.Error(err))
 		}
 	}
 
-	// Ждем завершения всех горутин
+	// Wait for all goroutines to finish
 	k.wg.Wait()
 	k.logger.Info("Kafka consumers stopped")
 }

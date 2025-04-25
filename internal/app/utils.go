@@ -2,11 +2,11 @@ package app
 
 import (
 	"time"
-	
+
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// TimestampProto конвертирует время time.Time в protobuf Timestamp
+// TimestampProto converts time.Time to protobuf Timestamp
 func TimestampProto(t time.Time) *timestamppb.Timestamp {
 	if t.IsZero() {
 		return nil

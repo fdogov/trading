@@ -4,7 +4,7 @@ import (
 	"os"
 )
 
-// Config представляет конфигурацию приложения
+// Config represents the application configuration
 type Config struct {
 	GRPC         GRPC               `yaml:"grpc"`
 	Database     Database           `yaml:"database"`
@@ -13,12 +13,12 @@ type Config struct {
 	Logger       Logger             `yaml:"logger"`
 }
 
-// GRPC представляет конфигурацию gRPC сервера
+// GRPC represents the gRPC server configuration
 type GRPC struct {
 	Port string `yaml:"port"`
 }
 
-// Database представляет конфигурацию базы данных
+// Database represents the database configuration
 type Database struct {
 	Host     string `yaml:"host"`
 	Port     string `yaml:"port"`
@@ -28,7 +28,7 @@ type Database struct {
 	SSLMode  string `yaml:"sslmode"`
 }
 
-// Kafka представляет конфигурацию Kafka
+// Kafka represents the Kafka configuration
 type Kafka struct {
 	Brokers           []string `yaml:"brokers"`
 	GroupID           string   `yaml:"group_id"`
@@ -38,14 +38,14 @@ type Kafka struct {
 	OrderEventTopic   string   `yaml:"order_event_topic"`
 }
 
-// Logger представляет конфигурацию логгера
+// Logger represents the logger configuration
 type Logger struct {
 	Level      string `yaml:"level"`
 	Encoding   string `yaml:"encoding"`
 	OutputPath string `yaml:"output_path"`
 }
 
-// Dependency представляет конфигурацию внешних зависимостей
+// Dependency represents the external dependencies configuration
 type Dependency struct {
 	Address string `yaml:"address"`
 	Timeout string `yaml:"timeout"`
@@ -55,9 +55,9 @@ type DependenciesConfig struct {
 	PartnerProxy Dependency `yaml:"partnerProxy"`
 }
 
-// LoadConfig загружает конфигурацию из переменных окружения или конфиг-файла
+// LoadConfig loads configuration from environment variables or config file
 func LoadConfig() Config {
-	// TODO: Реализовать загрузку конфигурации из файла или переменных окружения
+	// TODO: Implement loading configuration from file or environment variables
 	return Config{
 		GRPC: GRPC{
 			Port: getEnv("GRPC_PORT", "50051"),
@@ -92,7 +92,7 @@ func LoadConfig() Config {
 	}
 }
 
-// getEnv получает значение переменной окружения или возвращает значение по умолчанию
+// getEnv gets the value of an environment variable or returns a default value
 func getEnv(key, defaultValue string) string {
 	value := os.Getenv(key)
 	if value == "" {

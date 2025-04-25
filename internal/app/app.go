@@ -20,7 +20,7 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// App представляет приложение Trading
+// App represents the Trading application
 type App struct {
 	cfg                       config.Config
 	grpcServer                *grpc.Server
@@ -34,7 +34,7 @@ type App struct {
 	logger                    *zap.Logger
 }
 
-// NewApp создает новый экземпляр App
+// NewApp creates a new App instance
 func NewApp(
 	cfg config.Config,
 	accountStore store.AccountStore,
@@ -44,7 +44,7 @@ func NewApp(
 	dbTransactor store.DBTransactor,
 	logger *zap.Logger,
 ) (*App, error) {
-	// Создаем клиенты для партнерских сервисов
+	// Create clients for partner services
 	partnerProxyOrderClient, err := dependency.NewPartnerProxyOrderClient(cfg.Dependencies.PartnerProxy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create partner proxy order client: %w", err)
@@ -55,21 +55,21 @@ func NewApp(
 		return nil, fmt.Errorf("failed to create partner proxy finance client: %w", err)
 	}
 
-	// Создаем Kafka Producer
+	// Create Kafka Producer
 	kafkaProducer, err := kafka.NewProducer(cfg.Kafka.Brokers, logger.Named("kafka-producer"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Kafka producer: %w", err)
 	}
 
-	// Создаем DepositProducer
+	// Create DepositProducer
 	depositProducer := producers.NewDepositProducer(kafkaProducer, cfg.Kafka.DepositFeedTopic)
 
-	// Создаем gRPC серверы
+	// Create gRPC servers
 	accountsServer := accounts.NewServer(accountStore)
 	ordersServer := orders.NewServer(orderStore, accountStore, dbTransactor, partnerProxyOrderClient)
 	financeServer := finance.NewServer(depositStore, accountStore, partnerProxyFinanceClient, logger)
 
-	// Создаем Kafka консьюмеры
+	// Create Kafka consumers
 	kafkaConsumers := kafka.NewKafkaConsumers(
 		accountStore,
 		depositStore,
@@ -80,7 +80,7 @@ func NewApp(
 		logger.Named("kafka-consumer"),
 	)
 
-	// Создаем gRPC сервер
+	// Create gRPC server
 	grpcServer := grpc.NewServer()
 	tradingv1.RegisterAccountServiceServer(grpcServer, accountsServer)
 	tradingv1.RegisterOrderServiceServer(grpcServer, ordersServer)
@@ -100,14 +100,14 @@ func NewApp(
 	}, nil
 }
 
-// Start запускает приложение
+// Start starts the application
 func (a *App) Start(ctx context.Context) error {
-	// Запускаем Kafka консьюмеры
+	// Start Kafka consumers
 	if err := a.kafkaConsumers.Start(ctx, a.cfg.Kafka); err != nil {
 		return fmt.Errorf("failed to start Kafka consumers: %w", err)
 	}
 
-	// Запускаем gRPC сервер
+	// Start gRPC server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", a.cfg.GRPC.Port))
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
@@ -117,17 +117,17 @@ func (a *App) Start(ctx context.Context) error {
 	return a.grpcServer.Serve(lis)
 }
 
-// Stop останавливает приложение
+// Stop stops the application
 func (a *App) Stop() {
-	// Останавливаем Kafka консьюмеры
+	// Stop Kafka consumers
 	a.kafkaConsumers.Stop()
 
-	// Закрываем Kafka продюсер
+	// Close Kafka producer
 	if err := a.kafkaProducer.Close(); err != nil {
 		a.logger.Error("Error closing Kafka producer", zap.Error(err))
 	}
 
-	// Останавливаем gRPC сервер
+	// Stop gRPC server
 	a.grpcServer.GracefulStop()
 
 	a.logger.Info("Application stopped")

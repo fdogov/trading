@@ -19,16 +19,16 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// DepositEventData contains validated and transformed fields from the Kafka event.
+// DepositEventData contains validated and transformed fields from Kafka event.
 type DepositEventData struct {
 	ExtID          string
 	ExtAccountID   string
 	Amount         decimal.Decimal
 	Currency       string
 	Status         entity.DepositStatus
-	NewBalance     decimal.Decimal // New field for balance
-	CreatedAt      time.Time       // Transformed time
-	IdempotencyKey string          // Idempotency key
+	NewBalance     decimal.Decimal
+	CreatedAt      time.Time
+	IdempotencyKey string
 }
 
 // DepositConsumer processes deposit events from Kafka
@@ -61,42 +61,61 @@ func NewDepositConsumer(
 // It handles deposit events by creating or updating deposit records
 // and updating account balances when deposits are completed
 func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) error {
-	// Basic validation and parsing amount
+	// Parsing and validating the event
 	depositEvent, err := c.unmarshalAndValidateEvent(ctx, message)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to validate deposit event: %w", err)
 	}
 
-	_, err = c.eventStore.GetByEventID(ctx, depositEvent.IdempotencyKey, entity.EventTypeDeposit)
-	if err == nil {
-		logger.Info(ctx, "Event already processed",
-			zap.String("idempotency_key", depositEvent.IdempotencyKey))
-		return nil // Event already processed, skip
+	// Checking idempotency
+	if processed, err := c.isEventAlreadyProcessed(ctx, depositEvent.IdempotencyKey); err != nil {
+		return fmt.Errorf("failed to check idempotency: %w", err)
+	} else if processed {
+		return nil // Event already processed, skipping
 	}
 
-	// Add trace ID from event's external ID
+	// Adding trace ID from event's external ID
 	ctx = logger.ContextWithTraceID(ctx, depositEvent.ExtID)
 
-	logger.Info(ctx, "Received deposit event",
+	logger.Info(ctx, "Processing deposit event",
 		zap.String("ext_id", depositEvent.ExtID),
 		zap.String("ext_account_id", depositEvent.ExtAccountID),
-		zap.String("status", depositEvent.Status.String()))
+		zap.String("status", depositEvent.Status.String()),
+		zap.String("amount", depositEvent.Amount.String()),
+		zap.String("currency", depositEvent.Currency))
 
-	// Get deposit by external ID
+	// Processing deposit (create or update)
 	deposit, err := c.handleDeposit(ctx, depositEvent)
 	if err != nil {
 		return fmt.Errorf("failed to handle deposit: %w", err)
 	}
 
-	if err = c.sendToOperationFeed(ctx, deposit, depositEvent); err != nil {
+	// Sending deposit notification
+	if err = c.notifyDepositCompletion(ctx, deposit, depositEvent); err != nil {
 		return fmt.Errorf("failed to send deposit notification: %w", err)
 	}
 
-	return c.saveEvent(ctx, depositEvent)
+	// Recording event processing for idempotency
+	return c.recordEventProcessing(ctx, depositEvent)
 }
 
-func (c *DepositConsumer) saveEvent(ctx context.Context, event *DepositEventData) error {
-	// Save event for idempotency
+// isEventAlreadyProcessed checks if the event has already been processed
+func (c *DepositConsumer) isEventAlreadyProcessed(ctx context.Context, idempotencyKey string) (bool, error) {
+	_, err := c.eventStore.GetByEventID(ctx, idempotencyKey, entity.EventTypeDeposit)
+	if err == nil {
+		logger.Info(ctx, "Event already processed", zap.String("idempotency_key", idempotencyKey))
+		return true, nil
+	}
+
+	if errors.Is(err, entity.ErrNotFound) {
+		return false, nil
+	}
+
+	return false, fmt.Errorf("error checking event status: %w", err)
+}
+
+// recordEventProcessing records the fact that the event has been processed to ensure idempotency
+func (c *DepositConsumer) recordEventProcessing(ctx context.Context, event *DepositEventData) error {
 	eventEntity := entity.NewEvent(
 		entity.EventTypeDeposit,
 		event.IdempotencyKey,
@@ -108,176 +127,188 @@ func (c *DepositConsumer) saveEvent(ctx context.Context, event *DepositEventData
 	return nil
 }
 
-func (c *DepositConsumer) sendToOperationFeed(
+// notifyDepositCompletion sends a notification about deposit completion
+func (c *DepositConsumer) notifyDepositCompletion(
 	ctx context.Context,
 	deposit *entity.Deposit,
 	depositEvent *DepositEventData,
 ) error {
+	// Only send notifications for completed deposits
 	if !deposit.IsCompleted() {
-		return nil // Do not send notification if deposit is not completed
+		return nil
 	}
-	// Get account information to get userID
+
+	// Get account information to retrieve userID
 	account, err := c.accountStore.GetByID(ctx, deposit.AccountID)
 	if err != nil {
 		logger.Error(ctx, "Failed to get account for notification",
 			zap.String("account_id", deposit.AccountID.String()),
 			zap.Error(err))
-		return nil // Do not block processing due to notification issues
+		return fmt.Errorf("failed to get account: %w", err)
 	}
 
-	err = c.depositProducer.SendDepositEvent(
+	// Send deposit notification
+	if err = c.depositProducer.SendDepositEvent(
 		ctx,
 		deposit,
 		account.UserID,
 		depositEvent.NewBalance,
 		depositEvent.IdempotencyKey,
-	)
-	if err != nil {
+	); err != nil {
 		logger.Error(ctx, "Failed to send deposit notification",
-			zap.String("id", deposit.ID.String()),
+			zap.String("deposit_id", deposit.ID.String()),
 			zap.Error(err))
 		return fmt.Errorf("failed to send deposit notification: %w", err)
 	}
+
+	logger.Info(ctx, "Sent deposit completion notification",
+		zap.String("deposit_id", deposit.ID.String()),
+		zap.String("user_id", account.UserID),
+		zap.String("amount", deposit.Amount.String()),
+		zap.String("currency", deposit.Currency))
+
 	return nil
 }
 
+// unmarshalAndValidateEvent parses and validates raw Kafka message
 func (c *DepositConsumer) unmarshalAndValidateEvent(ctx context.Context, message []byte) (*DepositEventData, error) {
-	// Parse the Kafka event
 	var event partnerconsumerkafkav1.DepositEvent
 	if err := json.Unmarshal(message, &event); err != nil {
+		logger.Error(ctx, "Failed to unmarshal deposit event", zap.Error(err))
 		return nil, fmt.Errorf("failed to unmarshal deposit event: %w", err)
 	}
 
-	// Basic validation and parsing amount
-	depositEvent, err := c.validateAndParseEvent(&event)
+	// Validating and transforming event data
+	depositEvent, err := c.validateAndTransformEvent(&event)
 	if err != nil {
 		logger.Error(ctx, "Invalid deposit event", zap.Error(err))
 		return nil, err
 	}
+
 	return depositEvent, nil
 }
 
-// validateAndParseEvent validates the deposit event and returns a structure with parsed values.
-func (c *DepositConsumer) validateAndParseEvent(event *partnerconsumerkafkav1.DepositEvent) (*DepositEventData, error) {
-	validated := new(DepositEventData)
-	var err error
-
+// validateAndTransformEvent validates the deposit event and returns a structure with transformed values
+func (c *DepositConsumer) validateAndTransformEvent(event *partnerconsumerkafkav1.DepositEvent) (*DepositEventData, error) {
 	if event == nil {
-		return validated, fmt.Errorf("event is nil")
+		return nil, errors.New("event is nil")
 	}
 
-	// Checking required string fields
+	// Check required string fields
 	if event.ExtId == "" {
-		return validated, fmt.Errorf("ext_id is empty")
+		return nil, errors.New("ext_id is empty")
 	}
-	validated.ExtID = event.ExtId
-
 	if event.ExtAccountId == "" {
-		return validated, fmt.Errorf("ext_account_id is empty")
+		return nil, errors.New("ext_account_id is empty")
 	}
-	validated.ExtAccountID = event.ExtAccountId
-
 	if event.Currency == "" {
-		return validated, fmt.Errorf("currency is empty")
+		return nil, errors.New("currency is empty")
 	}
-	validated.Currency = event.Currency
-
 	if event.IdempotencyKey == "" {
-		// Assuming IdempotencyKey is required
-		return validated, fmt.Errorf("idempotency_key is empty")
+		return nil, errors.New("idempotency_key is empty")
 	}
-	validated.IdempotencyKey = event.IdempotencyKey
 
-	// Checking and parsing Amount
+	// Check and parse Amount
 	if event.Amount == nil || event.Amount.Value == "" {
-		return validated, fmt.Errorf("amount is empty")
+		return nil, errors.New("amount is empty")
 	}
-	validated.Amount, err = decimal.NewFromString(event.Amount.Value)
+	amount, err := decimal.NewFromString(event.Amount.Value)
 	if err != nil {
-		return validated, fmt.Errorf("invalid amount format: %w", err)
+		return nil, fmt.Errorf("invalid amount format: %w", err)
 	}
-	if validated.Amount.LessThanOrEqual(decimal.Zero) {
-		return validated, fmt.Errorf("amount must be positive")
+	if amount.LessThanOrEqual(decimal.Zero) {
+		return nil, errors.New("amount must be positive")
 	}
 
-	// Checking and parsing BalanceNew (optional, may be missing)
-	// If the field is required, add more strict validation.
+	// Check and parse BalanceNew (optional)
+	var newBalance decimal.Decimal
 	if event.BalanceNew != nil && event.BalanceNew.Value != "" {
-		validated.NewBalance, err = decimal.NewFromString(event.BalanceNew.Value)
+		newBalance, err = decimal.NewFromString(event.BalanceNew.Value)
 		if err != nil {
-			// Can return an error or set a default value,
-			// depending on requirements. Here we return an error.
-			return validated, fmt.Errorf("invalid balance_new format: %w", err)
+			return nil, fmt.Errorf("invalid balance_new format: %w", err)
 		}
 	} else {
-		// Handling the case when BalanceNew is not provided.
-		// Set zero by default if allowed.
-		validated.NewBalance = decimal.Zero
+		newBalance = decimal.Zero
 	}
 
-	// Checking and converting CreatedAt
+	// Check and transform CreatedAt
 	if event.CreatedAt == nil {
-		return validated, fmt.Errorf("created_at is nil")
+		return nil, errors.New("created_at is nil")
 	}
 	if err = event.CreatedAt.CheckValid(); err != nil {
-		return validated, fmt.Errorf("invalid created_at timestamp: %w", err)
+		return nil, fmt.Errorf("invalid created_at timestamp: %w", err)
 	}
-	validated.CreatedAt = event.CreatedAt.AsTime()
+	createdAt := event.CreatedAt.AsTime()
 
-	validated.Status, err = convertKafkaDepositStatus(event.Status)
+	// Convert status
+	status, err := convertKafkaDepositStatus(event.Status)
 	if err != nil {
-		return validated, fmt.Errorf("invalid deposit status: %w", err)
+		return nil, fmt.Errorf("invalid deposit status: %w", err)
 	}
 
-	return validated, nil
+	// Return validated data
+	return &DepositEventData{
+		ExtID:          event.ExtId,
+		ExtAccountID:   event.ExtAccountId,
+		Amount:         amount,
+		Currency:       event.Currency,
+		Status:         status,
+		NewBalance:     newBalance,
+		CreatedAt:      createdAt,
+		IdempotencyKey: event.IdempotencyKey,
+	}, nil
 }
 
+// handleDeposit processes deposit event, creating a new deposit or updating an existing one
 func (c *DepositConsumer) handleDeposit(ctx context.Context, depositEvent *DepositEventData) (*entity.Deposit, error) {
-	// Get deposit by external ID
+	// Try to find existing deposit
 	deposit, err := c.depositStore.GetByExtID(ctx, depositEvent.ExtID)
 	if err == nil {
-		// Deposit found, update it
-		return c.handleExistingDeposit(ctx, deposit, depositEvent)
-	}
-	if !errors.Is(err, entity.ErrNotFound) {
-		return nil, fmt.Errorf("failed to get deposit by ext ID %s: %w", depositEvent.ExtID, err)
+		// Deposit found, updating it
+		return c.updateExistingDeposit(ctx, deposit, depositEvent)
 	}
 
-	// Deposit not found, create a new one
-	return c.handleNewDeposit(ctx, depositEvent)
+	// Check that the error is "not found"
+	if !errors.Is(err, entity.ErrNotFound) {
+		return nil, fmt.Errorf("error retrieving deposit by ext ID %s: %w", depositEvent.ExtID, err)
+	}
+
+	// Deposit not found, creating a new one
+	return c.createNewDeposit(ctx, depositEvent)
 }
 
-// handleNewDeposit handles a deposit event for a new deposit
-func (c *DepositConsumer) handleNewDeposit(
+// createNewDeposit creates a new deposit record and updates account balance if necessary
+func (c *DepositConsumer) createNewDeposit(
 	ctx context.Context,
 	event *DepositEventData,
 ) (*entity.Deposit, error) {
-	// First, get the account by external account ID
+	// Find account by external ID
 	account, err := c.accountStore.GetByExtID(ctx, event.ExtAccountID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get account by ext ID %s: %w", event.ExtAccountID, err)
+		return nil, fmt.Errorf("failed to find account by ext ID %s: %w", event.ExtAccountID, err)
 	}
 
-	// Update context with user_id
+	// Add user_id to context for better logging
 	ctx = logger.ContextWithUserID(ctx, account.UserID)
 
-	deposit := c.mapToDeposit(account.ID, event)
+	// Create deposit entity
+	deposit := newDepositFromEvent(account.ID, event)
 
-	// Use transaction to create deposit and update balance if needed
+	// Use transaction for atomic deposit creation and balance update
 	err = c.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Create the deposit
+		// Create deposit record
 		if err = c.depositStore.Create(txCtx, deposit); err != nil {
 			return fmt.Errorf("failed to create deposit: %w", err)
 		}
 
-		logger.Info(txCtx, "Created new deposit record",
+		logger.Info(txCtx, "Created new deposit",
 			zap.String("id", deposit.ID.String()),
 			zap.String("account_id", deposit.AccountID.String()),
 			zap.String("amount", deposit.Amount.String()),
 			zap.String("currency", deposit.Currency),
 			zap.String("status", string(deposit.Status)))
 
-		// If deposit is completed, update account balance
+		// Update account balance if deposit is completed
 		if deposit.IsCompleted() {
 			if err = c.updateAccountBalance(txCtx, event, deposit); err != nil {
 				return fmt.Errorf("failed to update account balance: %w", err)
@@ -298,14 +329,13 @@ func (c *DepositConsumer) handleNewDeposit(
 	return deposit, nil
 }
 
-// handleExistingDeposit handles a deposit event for an existing deposit
-func (c *DepositConsumer) handleExistingDeposit(
+// updateExistingDeposit updates an existing deposit and handles balance updates if necessary
+func (c *DepositConsumer) updateExistingDeposit(
 	ctx context.Context,
 	deposit *entity.Deposit,
 	event *DepositEventData,
 ) (*entity.Deposit, error) {
-
-	// If deposit becomes completed, update account balance
+	// Update account balance only if the deposit transitions to completed state
 	if event.Status == entity.DepositStatusCompleted && !deposit.IsCompleted() {
 		if err := c.updateAccountBalance(ctx, event, deposit); err != nil {
 			return nil, fmt.Errorf("failed to update account balance: %w", err)
@@ -313,16 +343,20 @@ func (c *DepositConsumer) handleExistingDeposit(
 	}
 
 	// Update deposit status
+	prevStatus := deposit.Status
 	if err := c.depositStore.UpdateStatus(ctx, deposit.ID, event.Status); err != nil {
 		return nil, fmt.Errorf("failed to update deposit status: %w", err)
 	}
 
 	logger.Info(ctx, "Updated deposit status",
 		zap.String("id", deposit.ID.String()),
-		zap.String("old_status", deposit.Status.String()),
+		zap.String("old_status", prevStatus.String()),
 		zap.String("new_status", event.Status.String()))
 
-	deposit.Status = event.Status // Update status locally
+	// Update local deposit object for consistent return
+	deposit.Status = event.Status
+	deposit.UpdatedAt = time.Now()
+
 	return deposit, nil
 }
 
@@ -332,23 +366,22 @@ func (c *DepositConsumer) updateAccountBalance(
 	event *DepositEventData,
 	deposit *entity.Deposit,
 ) error {
-	// Update balance with calculated difference
+	// Update balance with exact new value
 	if err := c.accountStore.UpdateBalance(ctx, deposit.AccountID, event.NewBalance); err != nil {
-		return fmt.Errorf("failed to set exact balance for account %s: %w", deposit.AccountID, err)
+		return fmt.Errorf("failed to update balance for account %s: %w", deposit.AccountID, err)
 	}
 
-	logger.Info(ctx, "Set exact account balance",
+	logger.Info(ctx, "Updated account balance",
 		zap.String("account_id", deposit.AccountID.String()),
-		// zap.String("old_balance", account.Balance.String()),
 		zap.String("new_balance", event.NewBalance.String()),
-		zap.String("added_amount", deposit.Amount.String()),
+		zap.String("deposit_amount", deposit.Amount.String()),
 		zap.String("currency", deposit.Currency))
 
 	return nil
 }
 
-// mapToDeposit creates a new Deposit entity from Kafka event
-func (c *DepositConsumer) mapToDeposit(accountID uuid.UUID, event *DepositEventData) *entity.Deposit {
+// newDepositFromEvent creates a new Deposit entity from validated event
+func newDepositFromEvent(accountID uuid.UUID, event *DepositEventData) *entity.Deposit {
 	now := time.Now()
 
 	return &entity.Deposit{

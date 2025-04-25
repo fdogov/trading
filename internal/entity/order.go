@@ -7,7 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-// Order представляет торговый заказ
+// Order represents a trading order
 type Order struct {
 	ID           uuid.UUID       `db:"id"`
 	UserID       string          `db:"user_id"`

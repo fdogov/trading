@@ -3,6 +3,7 @@ package producers
 import (
 	"context"
 	"fmt"
+
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
@@ -14,24 +15,24 @@ import (
 	"github.com/fdogov/trading/internal/logger"
 )
 
-// KafkaProducer интерфейс для отправки сообщений в Kafka
+// KafkaProducer interface for sending messages to Kafka
 type KafkaProducer interface {
-	// Produce отправляет сообщение в указанный топик
+	// Produce sends a message to the specified topic
 	Produce(ctx context.Context, topic string, key string, value []byte) error
 }
 
 type DepositProducerI interface {
-	// SendDepositEvent отправляет событие о депозите в Kafka
+	// SendDepositEvent sends a deposit event to Kafka
 	SendDepositEvent(ctx context.Context, deposit *entity.Deposit, userID string, balanceNew decimal.Decimal, idempotencyKey string) error
 }
 
-// DepositProducer занимается отправкой событий депозитов в Kafka
+// DepositProducer handles sending deposit events to Kafka
 type DepositProducer struct {
 	kafkaProducer KafkaProducer
 	feedTopic     string
 }
 
-// NewDepositProducer создает новый экземпляр DepositProducer
+// NewDepositProducer creates a new DepositProducer instance
 func NewDepositProducer(kafkaProducer KafkaProducer, feedTopic string) *DepositProducer {
 	return &DepositProducer{
 		kafkaProducer: kafkaProducer,
@@ -39,7 +40,7 @@ func NewDepositProducer(kafkaProducer KafkaProducer, feedTopic string) *DepositP
 	}
 }
 
-// SendDepositEvent отправляет событие о депозите в Kafka
+// SendDepositEvent sends a deposit event to Kafka
 func (p *DepositProducer) SendDepositEvent(
 	ctx context.Context,
 	deposit *entity.Deposit,
@@ -48,16 +49,16 @@ func (p *DepositProducer) SendDepositEvent(
 	idempotencyKey string,
 ) error {
 
-	// Преобразование типов в protobuf структуру
+	// Converting types to protobuf structure
 	depositOperationEvent := convertDepositToProto(deposit, userID, balanceNew, idempotencyKey)
 
-	// Сериализация protobuf сообщения
+	// Serializing protobuf message
 	eventBytes, err := proto.Marshal(depositOperationEvent)
 	if err != nil {
 		return fmt.Errorf("failed to marshal deposit event: %w", err)
 	}
 
-	// Используем userID как ключ для сообщения
+	// Using userID as the message key
 	key := userID
 
 	logger.Info(ctx, "Sending deposit event to Kafka",
@@ -67,7 +68,7 @@ func (p *DepositProducer) SendDepositEvent(
 		zap.String("amount", deposit.Amount.String()),
 		zap.String("status", deposit.Status.String()))
 
-	// Отправка сообщения в Kafka
+	// Sending the message to Kafka
 	err = p.kafkaProducer.Produce(ctx, p.feedTopic, key, eventBytes)
 	if err != nil {
 		return fmt.Errorf("failed to produce deposit event to Kafka: %w", err)
@@ -99,7 +100,7 @@ func convertDepositToProto(
 	}
 }
 
-// convertToProtoStatus конвертирует внутренний статус депозита в формат для протобаффера
+// convertToProtoStatus converts internal deposit status to protobuf format
 func convertToProtoStatus(status entity.DepositStatus) feedkafkav1.DepositOperationStatus {
 	switch status {
 	case entity.DepositStatusPending:

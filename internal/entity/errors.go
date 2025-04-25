@@ -3,24 +3,24 @@ package entity
 import "errors"
 
 var (
-	// ErrNotFound отображает ошибку, когда сущность не найдена
+	// ErrNotFound indicates an error when an entity is not found
 	ErrNotFound = errors.New("entity not found")
-	
-	// ErrDuplicateKey отображает ошибку, когда нарушается уникальность ключа
+
+	// ErrDuplicateKey indicates an error when a key uniqueness is violated
 	ErrDuplicateKey = errors.New("duplicate key")
-	
-	// ErrInsufficientFunds отображает ошибку при недостаточном балансе
+
+	// ErrInsufficientFunds indicates an error when the balance is insufficient
 	ErrInsufficientFunds = errors.New("insufficient funds")
-	
-	// ErrInvalidOperation отображает ошибку при недопустимой операции
+
+	// ErrInvalidOperation indicates an error for an invalid operation
 	ErrInvalidOperation = errors.New("invalid operation")
-	
-	// ErrAccountBlocked отображает ошибку когда аккаунт заблокирован
+
+	// ErrAccountBlocked indicates an error when the account is blocked
 	ErrAccountBlocked = errors.New("account is blocked")
-	
-	// ErrAccountInactive отображает ошибку когда аккаунт неактивен
+
+	// ErrAccountInactive indicates an error when the account is inactive
 	ErrAccountInactive = errors.New("account is inactive")
-	
-	// ErrPartnerServiceUnavailable отображает ошибку когда сервис партнера недоступен
+
+	// ErrPartnerServiceUnavailable indicates an error when the partner service is unavailable
 	ErrPartnerServiceUnavailable = errors.New("partner service unavailable")
 )
