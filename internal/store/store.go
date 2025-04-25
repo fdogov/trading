@@ -68,6 +68,15 @@ type DepositStore interface {
 	UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error
 }
 
+// EventStore определяет интерфейс для работы с хранилищем событий
+type EventStore interface {
+	// Create создает новое событие
+	Create(ctx context.Context, event *entity.Event) error
+
+	// GetByEventID получает событие по внешнему идентификатору
+	GetByEventID(ctx context.Context, id string, eventType entity.EventType) (*entity.Event, error)
+}
+
 // DBTransactor определяет интерфейс для работы с транзакциями
 type DBTransactor interface {
 	// Exec выполняет функцию в транзакции

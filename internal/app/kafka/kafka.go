@@ -8,6 +8,7 @@ import (
 	"github.com/fdogov/trading/internal/domain/accounts"
 	"github.com/fdogov/trading/internal/domain/finance"
 	"github.com/fdogov/trading/internal/domain/orders"
+	"github.com/fdogov/trading/internal/producers"
 	"go.uber.org/zap"
 
 	"github.com/fdogov/trading/internal/config"
@@ -35,12 +36,14 @@ func NewKafkaConsumers(
 	accountStore store.AccountStore,
 	depositStore store.DepositStore,
 	orderStore store.OrderStore,
+	eventStore store.EventStore,
+	depositProducer *producers.DepositProducer,
 	dbTransactor store.DBTransactor,
 	logger *zap.Logger,
 ) *KafkaConsumers {
 	return &KafkaConsumers{
 		accountConsumer: accounts.NewAccountConsumer(accountStore, logger),
-		depositConsumer: finance.NewDepositConsumer(depositStore, accountStore, dbTransactor),
+		depositConsumer: finance.NewDepositConsumer(depositStore, accountStore, eventStore, depositProducer, dbTransactor),
 		orderConsumer:   orders.NewOrderConsumer(orderStore, accountStore, dbTransactor),
 		readers:         make([]*Reader, 0),
 		shutdownCh:      make(chan struct{}),

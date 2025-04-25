@@ -15,6 +15,7 @@ type Store struct {
 	accountStore store.AccountStore
 	orderStore   store.OrderStore
 	depositStore store.DepositStore
+	eventStore   store.EventStore
 	dbTransactor store.DBTransactor
 }
 
@@ -28,6 +29,7 @@ func NewStore(cfg config.Database) (*Store, error) {
 	accountStore := NewAccountStore(db)
 	orderStore := NewOrderStore(db)
 	depositStore := NewDepositStore(db)
+	eventStore := NewEventStore(db)
 	dbTransactor := NewTransactor(db)
 
 	return &Store{
@@ -35,6 +37,7 @@ func NewStore(cfg config.Database) (*Store, error) {
 		accountStore: accountStore,
 		orderStore:   orderStore,
 		depositStore: depositStore,
+		eventStore:   eventStore,
 		dbTransactor: dbTransactor,
 	}, nil
 }
@@ -52,6 +55,11 @@ func (s *Store) OrderStore() store.OrderStore {
 // DepositStore возвращает реализацию DepositStore
 func (s *Store) DepositStore() store.DepositStore {
 	return s.depositStore
+}
+
+// EventStore возвращает реализацию EventStore
+func (s *Store) EventStore() store.EventStore {
+	return s.eventStore
 }
 
 // DBTransactor возвращает реализацию DBTransactor

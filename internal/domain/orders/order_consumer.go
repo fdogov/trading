@@ -159,7 +159,7 @@ func (c *OrderConsumer) ProcessMessage(ctx context.Context, message []byte) erro
 
 		// Если заказ провалился, но был покупка, возвращаем средства на счет
 		if status == entity.OrderStatusFailed && order.Status != entity.OrderStatusFailed && order.IsBuy() {
-			err := c.accountStore.UpdateBalance(txCtx, order.AccountID, order.Amount.String())
+			err := c.accountStore.UpdateBalance(txCtx, order.AccountID, order.Amount)
 			if err != nil {
 				return fmt.Errorf("failed to return funds to account: %w", err)
 			}

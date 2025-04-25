@@ -112,7 +112,7 @@ func (h *createOrderHandler) handle(ctx context.Context, req *tradingv1.CreateOr
 			}
 
 			// Резервируем средства (уменьшаем баланс)
-			err = h.accountStore.UpdateBalance(txCtx, accountID, amount.Neg().String())
+			err = h.accountStore.UpdateBalance(txCtx, accountID, amount.Neg())
 			if err != nil {
 				return fmt.Errorf("failed to update account balance: %w", err)
 			}

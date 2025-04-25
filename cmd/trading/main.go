@@ -52,6 +52,7 @@ func main() {
 		store.AccountStore(),
 		store.OrderStore(),
 		store.DepositStore(),
+		store.EventStore(),
 		store.DBTransactor(),
 		log,
 	)

@@ -8,6 +8,7 @@ import (
 	"github.com/fdogov/trading/internal/domain/accounts"
 	"github.com/fdogov/trading/internal/domain/finance"
 	"github.com/fdogov/trading/internal/domain/orders"
+	"github.com/fdogov/trading/internal/producers"
 	"go.uber.org/zap"
 
 	"google.golang.org/grpc"
@@ -27,6 +28,7 @@ type App struct {
 	ordersServer              *orders.Server
 	financeServer             *finance.Server
 	kafkaConsumers            *kafka.KafkaConsumers
+	kafkaProducer             *kafka.Producer
 	partnerProxyOrderClient   dependency.PartnerProxyOrderClient
 	partnerProxyFinanceClient dependency.PartnerProxyFinanceClient
 	logger                    *zap.Logger
@@ -38,6 +40,7 @@ func NewApp(
 	accountStore store.AccountStore,
 	orderStore store.OrderStore,
 	depositStore store.DepositStore,
+	eventStore store.EventStore,
 	dbTransactor store.DBTransactor,
 	logger *zap.Logger,
 ) (*App, error) {
@@ -52,6 +55,15 @@ func NewApp(
 		return nil, fmt.Errorf("failed to create partner proxy finance client: %w", err)
 	}
 
+	// Создаем Kafka Producer
+	kafkaProducer, err := kafka.NewProducer(cfg.Kafka.Brokers, logger.Named("kafka-producer"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kafka producer: %w", err)
+	}
+
+	// Создаем DepositProducer
+	depositProducer := producers.NewDepositProducer(kafkaProducer, cfg.Kafka.DepositFeedTopic)
+
 	// Создаем gRPC серверы
 	accountsServer := accounts.NewServer(accountStore)
 	ordersServer := orders.NewServer(orderStore, accountStore, dbTransactor, partnerProxyOrderClient)
@@ -62,8 +74,10 @@ func NewApp(
 		accountStore,
 		depositStore,
 		orderStore,
+		eventStore,
+		depositProducer,
 		dbTransactor,
-		logger.Named("kafka"),
+		logger.Named("kafka-consumer"),
 	)
 
 	// Создаем gRPC сервер
@@ -79,6 +93,7 @@ func NewApp(
 		ordersServer:              ordersServer,
 		financeServer:             financeServer,
 		kafkaConsumers:            kafkaConsumers,
+		kafkaProducer:             kafkaProducer,
 		partnerProxyOrderClient:   partnerProxyOrderClient,
 		partnerProxyFinanceClient: partnerProxyFinanceClient,
 		logger:                    logger,
@@ -106,6 +121,11 @@ func (a *App) Start(ctx context.Context) error {
 func (a *App) Stop() {
 	// Останавливаем Kafka консьюмеры
 	a.kafkaConsumers.Stop()
+
+	// Закрываем Kafka продюсер
+	if err := a.kafkaProducer.Close(); err != nil {
+		a.logger.Error("Error closing Kafka producer", zap.Error(err))
+	}
 
 	// Останавливаем gRPC сервер
 	a.grpcServer.GracefulStop()

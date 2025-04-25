@@ -22,6 +22,10 @@ type Deposit struct {
 
 type DepositStatus string
 
+func (d DepositStatus) String() string {
+	return string(d)
+}
+
 const (
 	DepositStatusUnspecified DepositStatus = "UNSPECIFIED"
 	DepositStatusPending     DepositStatus = "PENDING"
