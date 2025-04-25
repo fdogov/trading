@@ -5,8 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fdogov/trading/internal/producers"
 	"time"
+
+	"github.com/fdogov/trading/internal/producers"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
@@ -18,16 +19,16 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// ValidatedDepositEvent содержит проверенные и преобразованные поля из события Kafka.
+// ValidatedDepositEvent contains validated and transformed fields from the Kafka event.
 type ValidatedDepositEvent struct {
 	ExtID          string
 	ExtAccountID   string
 	Amount         decimal.Decimal
 	Currency       string
 	Status         entity.DepositStatus
-	NewBalance     decimal.Decimal // Новое поле для баланса
-	CreatedAt      time.Time       // Преобразованное время
-	IdempotencyKey string          // Ключ идемпотентности
+	NewBalance     decimal.Decimal // New field for balance
+	CreatedAt      time.Time       // Transformed time
+	IdempotencyKey string          // Idempotency key
 }
 
 // DepositConsumer processes deposit events from Kafka
@@ -113,15 +114,15 @@ func (c *DepositConsumer) sendToOperationFeed(
 	depositEvent *ValidatedDepositEvent,
 ) error {
 	if !deposit.IsCompleted() {
-		return nil // Не отправляем уведомление, если депозит не завершен
+		return nil // Do not send notification if deposit is not completed
 	}
-	// Получаем информацию об аккаунте для получения userID
+	// Get account information to get userID
 	account, err := c.accountStore.GetByID(ctx, deposit.AccountID)
 	if err != nil {
 		logger.Error(ctx, "Failed to get account for notification",
 			zap.String("account_id", deposit.AccountID.String()),
 			zap.Error(err))
-		return nil // Не блокируем обработку из-за проблем с уведомлением
+		return nil // Do not block processing due to notification issues
 	}
 
 	err = c.depositProducer.SendDepositEvent(
@@ -156,76 +157,76 @@ func (c *DepositConsumer) unmarshalAndValidateEvent(ctx context.Context, message
 	return depositEvent, nil
 }
 
-// validateAndParseEvent проверяет событие пополнения и возвращает структуру с разобранными значениями.
+// validateAndParseEvent validates the deposit event and returns a structure with parsed values.
 func (c *DepositConsumer) validateAndParseEvent(event *partnerconsumerkafkav1.DepositEvent) (*ValidatedDepositEvent, error) {
 	validated := new(ValidatedDepositEvent)
 	var err error
 
 	if event == nil {
-		return validated, fmt.Errorf("событие равно nil")
+		return validated, fmt.Errorf("event is nil")
 	}
 
-	// Проверка обязательных строковых полей
+	// Checking required string fields
 	if event.ExtId == "" {
-		return validated, fmt.Errorf("ext_id пуст")
+		return validated, fmt.Errorf("ext_id is empty")
 	}
 	validated.ExtID = event.ExtId
 
 	if event.ExtAccountId == "" {
-		return validated, fmt.Errorf("ext_account_id пуст")
+		return validated, fmt.Errorf("ext_account_id is empty")
 	}
 	validated.ExtAccountID = event.ExtAccountId
 
 	if event.Currency == "" {
-		return validated, fmt.Errorf("currency пуст")
+		return validated, fmt.Errorf("currency is empty")
 	}
 	validated.Currency = event.Currency
 
 	if event.IdempotencyKey == "" {
-		// Предполагаем, что IdempotencyKey обязателен
-		return validated, fmt.Errorf("idempotency_key пуст")
+		// Assuming IdempotencyKey is required
+		return validated, fmt.Errorf("idempotency_key is empty")
 	}
 	validated.IdempotencyKey = event.IdempotencyKey
 
-	// Проверка и парсинг Amount
+	// Checking and parsing Amount
 	if event.Amount == nil || event.Amount.Value == "" {
-		return validated, fmt.Errorf("amount пуст")
+		return validated, fmt.Errorf("amount is empty")
 	}
 	validated.Amount, err = decimal.NewFromString(event.Amount.Value)
 	if err != nil {
-		return validated, fmt.Errorf("неверный формат amount: %w", err)
+		return validated, fmt.Errorf("invalid amount format: %w", err)
 	}
 	if validated.Amount.LessThanOrEqual(decimal.Zero) {
-		return validated, fmt.Errorf("amount должен быть положительным")
+		return validated, fmt.Errorf("amount must be positive")
 	}
 
-	// Проверка и парсинг BalanceNew (опционально, может отсутствовать)
-	// Если поле обязательно, добавьте более строгую проверку.
+	// Checking and parsing BalanceNew (optional, may be missing)
+	// If the field is required, add more strict validation.
 	if event.BalanceNew != nil && event.BalanceNew.Value != "" {
 		validated.NewBalance, err = decimal.NewFromString(event.BalanceNew.Value)
 		if err != nil {
-			// Можно вернуть ошибку или установить значение по умолчанию,
-			// в зависимости от требований. Здесь возвращаем ошибку.
-			return validated, fmt.Errorf("неверный формат balance_new: %w", err)
+			// Can return an error or set a default value,
+			// depending on requirements. Here we return an error.
+			return validated, fmt.Errorf("invalid balance_new format: %w", err)
 		}
 	} else {
-		// Обработка случая, когда BalanceNew не предоставлен.
-		// Устанавливаем ноль по умолчанию, если это допустимо.
+		// Handling the case when BalanceNew is not provided.
+		// Set zero by default if allowed.
 		validated.NewBalance = decimal.Zero
 	}
 
-	// Проверка и преобразование CreatedAt
+	// Checking and converting CreatedAt
 	if event.CreatedAt == nil {
-		return validated, fmt.Errorf("created_at равно nil")
+		return validated, fmt.Errorf("created_at is nil")
 	}
 	if err = event.CreatedAt.CheckValid(); err != nil {
-		return validated, fmt.Errorf("неверная временная метка created_at: %w", err)
+		return validated, fmt.Errorf("invalid created_at timestamp: %w", err)
 	}
 	validated.CreatedAt = event.CreatedAt.AsTime()
 
 	validated.Status, err = convertKafkaDepositStatus(event.Status)
 	if err != nil {
-		return validated, fmt.Errorf("неверный статус депозита: %w", err)
+		return validated, fmt.Errorf("invalid deposit status: %w", err)
 	}
 
 	return validated, nil
@@ -331,7 +332,7 @@ func (c *DepositConsumer) updateAccountBalance(
 	event *ValidatedDepositEvent,
 	deposit *entity.Deposit,
 ) error {
-	// Обновляем баланс с вычисленной разницей
+	// Update balance with calculated difference
 	if err := c.accountStore.UpdateBalance(ctx, deposit.AccountID, event.NewBalance); err != nil {
 		return fmt.Errorf("failed to set exact balance for account %s: %w", deposit.AccountID, err)
 	}
@@ -372,6 +373,6 @@ func convertKafkaDepositStatus(status partnerconsumerkafkav1.DepositStatus) (ent
 	case partnerconsumerkafkav1.DepositStatus_DEPOSIT_STATUS_FAILED:
 		return entity.DepositStatusFailed, nil
 	default:
-		return entity.DepositStatusUnspecified, fmt.Errorf("неизвестный статус депозита: %s", status.String())
+		return entity.DepositStatusUnspecified, fmt.Errorf("unknown deposit status: %s", status.String())
 	}
 }
