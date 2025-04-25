@@ -1,0 +1,96 @@
+version: '3'
+
+vars:
+  SERVICE_NAME: trading
+  DB_CONFIG_PATH: dbconfig.yml
+  SQL_MIGRATE_VERSION: v1.2.0
+  GOBIN: $(pwd)/bin
+
+tasks:
+  default:
+    cmds:
+      - echo "Trading Service Task Runner"
+      - echo "Run 'task --list' to see available tasks"
+
+  compose:up:
+    desc: Start all containers
+    cmds:
+      - podman-compose up -d
+
+  compose:down:
+    desc: Stop and remove all containers
+    cmds:
+      - podman-compose down
+
+  infra-up:
+    desc: "Start infrastructure containers"
+    cmds:
+      - podman-compose up -d postgres redpanda redpanda-console redpanda-setup
+
+  infra-down:
+    desc: "Stop infrastructure containers"
+    cmds:
+      - podman-compose down
+
+  install-tools:
+    desc: install migration tools
+    cmds:
+      - GOPATH=$GOPATH GOBIN={{ .GOBIN }} go install -v github.com/rubenv/sql-migrate/...@{{ .SQL_MIGRATE_VERSION }}
+    silent: true
+    env:
+      GOPRIVATE: gitlab.diftech.org
+
+  migrations-new:
+    desc: create migration
+    deps: [ install-tools ]
+    cmds:
+      - GOPATH=$GOPATH GOBIN={{ .GOBIN }} PATH=$PATH:$GOBIN sql-migrate new -config={{ .DB_CONFIG_PATH }} -env="development" {{.CLI_ARGS}}
+
+  migrations-up:
+    desc: apply all pending migrations
+    deps: [ install-tools ]
+    cmds:
+      - GOPATH=$GOPATH GOBIN={{ .GOBIN }} PATH=$PATH:$GOBIN sql-migrate up -config={{ .DB_CONFIG_PATH }} -env="development"
+
+  migrations-down:
+    desc: undo last applied migration
+    deps: [ install-tools ]
+    cmds:
+      - GOPATH=$GOPATH GOBIN={{ .GOBIN }} PATH=$PATH:$GOBIN sql-migrate down -config={{ .DB_CONFIG_PATH }} -env="development"
+
+  migrations-status:
+    desc: show migration status
+    deps: [ install-tools ]
+    cmds:
+      - GOPATH=$GOPATH GOBIN={{ .GOBIN }} PATH=$PATH:$GOBIN sql-migrate status -config={{ .DB_CONFIG_PATH }} -env="development"
+
+  run-app:
+    desc: "Run the trading application"
+    cmds:
+      - go run ./cmd/trading/main.go
+
+  run-app-local:
+    desc: "Run the trading application with local Kafka configuration"
+    cmds:
+      - KAFKA_BROKER=localhost:9092 go run ./cmd/trading/main.go
+
+  kafka:send:account:
+    desc: Send test account event to Redpanda
+    cmds:
+      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=account
+
+  kafka:send:deposit:
+    desc: Send test deposit event to Redpanda
+    cmds:
+      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=deposit
+
+  kafka:send:order:
+    desc: Send test order event to Redpanda
+    cmds:
+      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=order
+
+  clean:
+    desc: Clean containers
+    cmds:
+      - podman pod rm -f pod_trading || true
+      - podman rm -f trading-postgres trading-redpanda trading-redpanda-console trading-redpanda-setup trading-migrations trading-service || true

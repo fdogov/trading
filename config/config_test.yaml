@@ -1,0 +1,24 @@
+database:
+  host: "localhost"
+  port: "5432"
+  user: "postgres"
+  password: "postgres"
+  dbname: "trading"
+  sslmode: "disable"
+
+grpc:
+  port: "13013"
+
+kafka:
+  brokers:
+    - "localhost:9092"
+  group_id: "trading-test"
+  account_topic: "accounts-test"
+  deposit_event_topic: "deposits-test"
+  order_event_topic: "orders-test"
+
+dependencies:
+  partnerProxy:
+    address: "localhost:13023"
+    timeout: "5s"
+    retries: 3

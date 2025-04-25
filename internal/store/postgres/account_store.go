@@ -1,0 +1,140 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/fdogov/trading/internal/entity"
+)
+
+// AccountStore реализует интерфейс store.AccountStore для PostgreSQL
+type AccountStore struct {
+	db *DB
+}
+
+// NewAccountStore создает новый экземпляр AccountStore
+func NewAccountStore(db *DB) *AccountStore {
+	return &AccountStore{db: db}
+}
+
+// Create создает новый аккаунт
+func (s *AccountStore) Create(ctx context.Context, account *entity.Account) error {
+	const query = `
+		INSERT INTO accounts (
+			id, user_id, ext_id, balance, currency, status, created_at, updated_at
+		) VALUES (
+			:id, :user_id, :ext_id, :balance, :currency, :status, :created_at, :updated_at
+		);
+	`
+
+	_, err := sqlx.NamedExecContext(ctx, s.db.Primary(ctx), query, account)
+	if err != nil {
+		return fmt.Errorf("failed to create account: %w", err)
+	}
+
+	return nil
+}
+
+// GetByID получает аккаунт по ID
+func (s *AccountStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Account, error) {
+	const query = `SELECT * FROM accounts WHERE id = $1;`
+
+	var account entity.Account
+	err := sqlx.GetContext(ctx, s.db.Replica(), &account, query, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get account by ID: %w", err)
+	}
+
+	return &account, nil
+}
+
+// GetByUserID получает аккаунты пользователя по UserID
+func (s *AccountStore) GetByUserID(ctx context.Context, userID string) ([]*entity.Account, error) {
+	const query = `SELECT * FROM accounts WHERE user_id = $1;`
+
+	var accounts []*entity.Account
+	err := sqlx.SelectContext(ctx, s.db.Replica(), &accounts, query, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get accounts by user ID: %w", err)
+	}
+
+	return accounts, nil
+}
+
+// GetByExtID получает аккаунт по внешнему ID
+func (s *AccountStore) GetByExtID(ctx context.Context, extID string) (*entity.Account, error) {
+	const query = `SELECT * FROM accounts WHERE ext_id = $1;`
+
+	var account entity.Account
+	err := sqlx.GetContext(ctx, s.db.Replica(), &account, query, extID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get account by ext ID: %w", err)
+	}
+
+	return &account, nil
+}
+
+// Update обновляет аккаунт
+func (s *AccountStore) Update(ctx context.Context, account *entity.Account) error {
+	const query = `
+		UPDATE accounts SET
+			user_id = :user_id,
+			ext_id = :ext_id,
+			balance = :balance,
+			currency = :currency,
+			status = :status,
+			updated_at = :updated_at
+		WHERE id = :id;
+	`
+
+	_, err := sqlx.NamedExecContext(ctx, s.db.Primary(ctx), query, account)
+	if err != nil {
+		return fmt.Errorf("failed to update account: %w", err)
+	}
+
+	return nil
+}
+
+// UpdateBalance обновляет баланс аккаунта
+func (s *AccountStore) UpdateBalance(ctx context.Context, id uuid.UUID, amount string) error {
+	const query = `
+		UPDATE accounts SET
+			balance = balance + CAST($1 AS DECIMAL(18, 6)),
+			updated_at = NOW()
+		WHERE id = $2;
+	`
+
+	_, err := s.db.Primary(ctx).ExecContext(ctx, query, amount, id)
+	if err != nil {
+		return fmt.Errorf("failed to update account balance: %w", err)
+	}
+
+	return nil
+}
+
+// GetByExtIDAndUserID получает аккаунт по внешнему ID и UserID
+func (s *AccountStore) GetByExtIDAndUserID(ctx context.Context, extID, userID string) (*entity.Account, error) {
+	const query = `SELECT * FROM accounts WHERE ext_id = $1 AND user_id = $2;`
+
+	var account entity.Account
+	err := sqlx.GetContext(ctx, s.db.Replica(), &account, query, extID, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get account by ext ID and user ID: %w", err)
+	}
+
+	return &account, nil
+}

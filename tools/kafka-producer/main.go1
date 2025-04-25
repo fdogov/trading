@@ -1,0 +1,128 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/segmentio/kafka-go"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
+	originationkafkav1 "gitlab.diftech.org/test-demo/contracts/proto/backend/origination/kafka/v1"
+	partnerconsumerkafkav1 "gitlab.diftech.org/test-demo/contracts/proto/backend/partnerconsumer/kafka/v1"
+)
+
+func main() {
+	brokerAddr := flag.String("broker", "localhost:9092", "Redpanda/Kafka broker address")
+	messageType := flag.String("type", "account", "Message type (account, deposit, order)")
+	flag.Parse()
+
+	w := &kafka.Writer{
+		Addr:     kafka.TCP(*brokerAddr),
+		Balancer: &kafka.LeastBytes{},
+	}
+	defer w.Close()
+
+	ctx := context.Background()
+
+	switch *messageType {
+	case "account":
+		sendAccountEvent(ctx, w)
+	case "deposit":
+		sendDepositEvent(ctx, w)
+	case "order":
+		sendOrderEvent(ctx, w)
+	default:
+		log.Fatalf("Unknown message type: %s", *messageType)
+	}
+}
+
+func sendAccountEvent(ctx context.Context, w *kafka.Writer) {
+	event := originationkafkav1.AccountEvent{
+		Id:           uuid.New().String(),
+		UserId:       "user-" + uuid.New().String()[:8],
+		ExtAccountId: "ext-account-" + uuid.New().String()[:8],
+		Currency:     "USD",
+		CreatedAt:    timestamppb.Now(),
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		log.Fatalf("Failed to marshal account event: %v", err)
+	}
+
+	err = w.WriteMessages(ctx, kafka.Message{
+		Topic: "origination.account",
+		Key:   []byte(event.Id),
+		Value: data,
+	})
+	if err != nil {
+		log.Fatalf("Failed to send account event: %v", err)
+	}
+
+	fmt.Printf("Sent account event to Redpanda: %+v\n", event)
+}
+
+func sendDepositEvent(ctx context.Context, w *kafka.Writer) {
+	event := partnerconsumerkafkav1.DepositEvent{
+		ExtId:        "deposit-" + uuid.New().String()[:8],
+		ExtAccountId: "ext-account-" + uuid.New().String()[:8],
+		Amount: &partnerconsumerkafkav1.DepositEvent_Amount{
+			Value: "100.00",
+		},
+		Currency:  "USD",
+		CreatedAt: timestamppb.Now(),
+		Status:    partnerconsumerkafkav1.DepositStatus_DEPOSIT_STATUS_COMPLETED,
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		log.Fatalf("Failed to marshal deposit event: %v", err)
+	}
+
+	err = w.WriteMessages(ctx, kafka.Message{
+		Topic: "partnerconsumer.deposit",
+		Key:   []byte(event.ExtId),
+		Value: data,
+	})
+	if err != nil {
+		log.Fatalf("Failed to send deposit event: %v", err)
+	}
+
+	fmt.Printf("Sent deposit event to Redpanda: %+v\n", event)
+}
+
+func sendOrderEvent(ctx context.Context, w *kafka.Writer) {
+	event := partnerconsumerkafkav1.OrderEvent{
+		ExtId:        "order-" + uuid.New().String()[:8],
+		ExtAccountId: "ext-account-" + uuid.New().String()[:8],
+		Amount: &partnerconsumerkafkav1.OrderEvent_Amount{
+			Value: "75.50",
+		},
+		Currency:     "USD",
+		CreatedAt:    timestamppb.Now(),
+		Status:       partnerconsumerkafkav1.OrderStatus_ORDER_STATUS_COMPLETED,
+		Symbol:       "AAPL",
+		InstrumentId: "instr-123",
+	}
+
+	data, err := json.Marshal(event)
+	if err != nil {
+		log.Fatalf("Failed to marshal order event: %v", err)
+	}
+
+	err = w.WriteMessages(ctx, kafka.Message{
+		Topic: "partnerconsumer.order",
+		Key:   []byte(event.ExtId),
+		Value: data,
+	})
+	if err != nil {
+		log.Fatalf("Failed to send order event: %v", err)
+	}
+
+	fmt.Printf("Sent order event to Redpanda: %+v\n", event)
+}
