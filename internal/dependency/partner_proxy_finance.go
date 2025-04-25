@@ -48,7 +48,7 @@ func (c *partnerProxyFinanceClient) CreateDeposit(
 
 	// Отправляем запрос
 	resp, err := c.client.CreateDeposit(ctx, &partnerproxyv1.CreateDepositRequest{
-		IdempotencyKey: deposit.IdempotencyKey,
+		IdempotencyKey: deposit.ID.String(),
 		ExtAccountId:   extAccountID,
 		Amount:         amountDecimal,
 		Currency:       deposit.Currency,

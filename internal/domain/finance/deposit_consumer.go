@@ -47,16 +47,15 @@ func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) er
 		return fmt.Errorf("failed to unmarshal deposit event: %w", err)
 	}
 
-	// Basic validation
-	if err := c.validateEvent(&event); err != nil {
+	// Basic validation and parsing amount
+	amount, err := c.validateEvent(&event)
+	if err != nil {
 		logger.Error(ctx, "Invalid deposit event", zap.Error(err))
 		return err
 	}
 
 	// Add trace ID from event's external ID
 	ctx = logger.ContextWithTraceID(ctx, event.ExtId)
-	// Сохраняем событие в контексте для доступа к новому балансу
-	ctx = context.WithValue(ctx, "depositEvent", &event)
 
 	logger.Info(ctx, "Received deposit event",
 		zap.String("ext_id", event.ExtId),
@@ -74,41 +73,41 @@ func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) er
 	}
 
 	// Deposit not found, create a new one
-	return c.handleNewDeposit(ctx, &event)
+	return c.handleNewDeposit(ctx, &event, amount)
 }
 
-// validateEvent validates the deposit event
-func (c *DepositConsumer) validateEvent(event *partnerconsumerkafkav1.DepositEvent) error {
+// validateEvent validates the deposit event and returns the parsed amount
+func (c *DepositConsumer) validateEvent(event *partnerconsumerkafkav1.DepositEvent) (decimal.Decimal, error) {
 	if event.ExtId == "" {
-		return fmt.Errorf("ext_id is empty")
+		return decimal.Zero, fmt.Errorf("ext_id is empty")
 	}
 
 	if event.ExtAccountId == "" {
-		return fmt.Errorf("ext_account_id is empty")
+		return decimal.Zero, fmt.Errorf("ext_account_id is empty")
 	}
 
 	if event.Amount == nil || event.Amount.Value == "" {
-		return fmt.Errorf("amount is empty")
+		return decimal.Zero, fmt.Errorf("amount is empty")
 	}
 
 	amount, err := decimal.NewFromString(event.Amount.Value)
 	if err != nil {
-		return fmt.Errorf("invalid amount format: %w", err)
+		return decimal.Zero, fmt.Errorf("invalid amount format: %w", err)
 	}
 
 	if amount.LessThanOrEqual(decimal.Zero) {
-		return fmt.Errorf("amount must be positive")
+		return decimal.Zero, fmt.Errorf("amount must be positive")
 	}
 
 	if event.Currency == "" {
-		return fmt.Errorf("currency is empty")
+		return decimal.Zero, fmt.Errorf("currency is empty")
 	}
 
-	return nil
+	return amount, nil
 }
 
 // handleNewDeposit handles a deposit event for a new deposit
-func (c *DepositConsumer) handleNewDeposit(ctx context.Context, event *partnerconsumerkafkav1.DepositEvent) error {
+func (c *DepositConsumer) handleNewDeposit(ctx context.Context, event *partnerconsumerkafkav1.DepositEvent, amount decimal.Decimal) error {
 	// First, get the account by external account ID
 	account, err := c.accountStore.GetByExtID(ctx, event.ExtAccountId)
 	if err != nil {
@@ -118,7 +117,7 @@ func (c *DepositConsumer) handleNewDeposit(ctx context.Context, event *partnerco
 	// Update context with user_id
 	ctx = logger.ContextWithUserID(ctx, account.UserID)
 
-	deposit := c.mapToDeposit(account.ID, event)
+	deposit := c.mapToDeposit(account.ID, event, amount)
 
 	// Use transaction to create deposit and update balance if needed
 	err = c.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
@@ -155,8 +154,8 @@ func (c *DepositConsumer) handleNewDeposit(ctx context.Context, event *partnerco
 	return nil
 }
 
-func (c *DepositConsumer) mapToDeposit(accountID uuid.UUID, event *partnerconsumerkafkav1.DepositEvent) *entity.Deposit {
-	amount, _ := decimal.NewFromString(event.Amount.Value) // Ошибка уже обработана ранее
+// mapToDeposit creates a new Deposit entity from Kafka event
+func (c *DepositConsumer) mapToDeposit(accountID uuid.UUID, event *partnerconsumerkafkav1.DepositEvent, amount decimal.Decimal) *entity.Deposit {
 	now := time.Now()
 
 	return &entity.Deposit{
