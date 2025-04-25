@@ -116,12 +116,17 @@ func (k *KafkaConsumers) startMessageHandler(ctx context.Context, reader *Reader
 func (k *KafkaConsumers) Stop() {
 	close(k.shutdownCh)
 
-	// Close all readers
+	var wg sync.WaitGroup
 	for _, reader := range k.readers {
-		if err := reader.Close(); err != nil {
-			k.logger.Error("Error closing Kafka reader", zap.Error(err))
-		}
+		wg.Add(1)
+		go func(r *Reader) {
+			defer wg.Done()
+			if err := r.Close(); err != nil {
+				k.logger.Error("Error closing Kafka reader", zap.Error(err))
+			}
+		}(reader)
 	}
+	wg.Wait()
 
 	// Wait for all goroutines to finish
 	k.wg.Wait()
