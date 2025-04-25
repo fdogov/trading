@@ -15,17 +15,17 @@ import (
 )
 
 func main() {
-	// Создаем контекст приложения
+	// Create application context
 	ctx := context.Background()
 
-	// Добавляем trace ID для полного цикла работы приложения
+	// Add trace ID for the full application lifecycle
 	appTraceID := uuid.New().String()
 	ctx = context.WithValue(ctx, "app_trace_id", appTraceID)
 
-	// Загружаем конфигурацию
+	// Load configuration
 	cfg := config.LoadConfig()
 
-	// Инициализируем логгер
+	// Initialize logger
 	log, err := logger.InitLogger(cfg.Logger)
 	if err != nil {
 		panic("Failed to initialize logger: " + err.Error())
@@ -35,7 +35,7 @@ func main() {
 	log = log.With(zap.String("app_trace_id", appTraceID))
 	log.Info("Starting application")
 
-	// Создаем хранилище данных
+	// Create data store
 	store, err := postgres.NewStore(cfg.Database)
 	if err != nil {
 		log.Fatal("Failed to create store", zap.Error(err))
@@ -46,7 +46,7 @@ func main() {
 		}
 	}()
 
-	// Создаем приложение
+	// Create application
 	application, err := app.NewApp(
 		cfg,
 		store.AccountStore(),
@@ -60,16 +60,16 @@ func main() {
 		log.Fatal("Failed to create application", zap.Error(err))
 	}
 
-	// Обрабатываем сигналы остановки
+	// Handle shutdown signals
 	go handleSignals(application, log)
 
-	// Запускаем приложение
+	// Start the application
 	if err := application.Start(ctx); err != nil {
 		log.Fatal("Failed to start application", zap.Error(err))
 	}
 }
 
-// handleSignals обрабатывает сигналы остановки приложения
+// handleSignals processes application shutdown signals
 func handleSignals(application *app.App, log *zap.Logger) {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)

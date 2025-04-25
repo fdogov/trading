@@ -2,34 +2,34 @@ FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Копируем go.mod и go.sum
+# Copy go.mod and go.sum
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Копируем исходный код
+# Copy source code
 COPY . .
 
-# Собираем приложение
+# Build application
 RUN CGO_ENABLED=0 GOOS=linux go build -o /app/trading ./cmd/trading
 
-# Финальный образ
+# Final image
 FROM alpine:3.18
 
 WORKDIR /app
 
-# Устанавливаем необходимые пакеты
+# Set up necessary packages
 RUN apk --no-cache add ca-certificates tzdata postgresql-client netcat-openbsd
 
-# Копируем бинарный файл из builder
+# Copy binary file from builder
 COPY --from=builder /app/trading /app/trading
 COPY --from=builder /app/migrations /app/migrations
 
-# Копируем скрипты ожидания
+# Copy wait scripts
 COPY --from=builder /app/scripts/wait-for-postgres.sh /app/wait-for-postgres.sh
 COPY --from=builder /app/scripts/wait-for-kafka.sh /app/wait-for-redpanda.sh
 RUN chmod +x /app/wait-for-postgres.sh /app/wait-for-redpanda.sh
 
-# Устанавливаем переменные окружения
+# Set environment variables
 ENV GRPC_PORT=50051
 ENV DB_HOST=postgres
 ENV DB_PORT=5432
@@ -44,5 +44,5 @@ ENV KAFKA_ACCOUNT_TOPIC=origination.account
 ENV KAFKA_DEPOSIT_EVENT_TOPIC=partnerconsumer.deposit
 ENV KAFKA_ORDER_EVENT_TOPIC=partnerconsumer.order
 
-# Запускаем приложение
+# Run application
 CMD /app/wait-for-postgres.sh postgres && /app/wait-for-redpanda.sh redpanda && /app/trading

@@ -1,150 +1,150 @@
 # Trading Service
 
-Сервис для управления торговыми аккаунтами, заказами и финансовыми операциями.
+Service for managing trading accounts, orders and financial operations.
 
-## Архитектура
+## Architecture
 
-Сервис реализует следующие gRPC API:
-- `AccountService` - управление торговыми аккаунтами
-- `OrderService` - создание и управление заказами
-- `FinanceService` - финансовые операции (депозиты)
+The service implements the following gRPC APIs:
+- `AccountService` - trading account management
+- `OrderService` - order creation and management
+- `FinanceService` - financial operations (deposits)
 
-Сервис взаимодействует с:
-- `PartnerProxy` - для проксирования заказов и финансовых операций к партнеру
-- Redpanda - для получения событий от других сервисов (совместим с протоколом Kafka)
-- PostgreSQL - для хранения данных
+The service interacts with:
+- `PartnerProxy` - for proxying orders and financial operations to the partner
+- Redpanda - for receiving events from other services (compatible with Kafka protocol)
+- PostgreSQL - for data storage
 
-## Структура проекта
+## Project Structure
 
 ```
 trading/
-├── cmd/               # Исполняемые файлы
-│   └── trading/       # Главный исполняемый файл
-├── docker-compose.yml # Файл для запуска сервиса с PostgreSQL и Redpanda
-├── internal/          # Внутренние пакеты
-│   ├── app/           # Приложение и его компоненты
-│   │   ├── accounts/  # Обработчики API аккаунтов
-│   │   ├── finance/   # Обработчики API финансов
-│   │   ├── kafka/     # Обработчики Kafka/Redpanda
-│   │   └── orders/    # Обработчики API заказов
-│   ├── config/        # Конфигурация
-│   ├── dependency/    # Клиенты для внешних сервисов
-│   ├── entity/        # Доменные модели
-│   └── store/         # Интерфейсы хранилищ
-│       └── postgres/  # Реализация хранилищ для PostgreSQL
-├── migrations/        # SQL-миграции для PostgreSQL
-├── scripts/           # Вспомогательные скрипты
-├── Taskfile.yml       # Файл задач для автоматизации
-└── tools/             # Вспомогательные инструменты
-    └── kafka-producer/ # Утилита для отправки тестовых сообщений
+├── cmd/               # Executable files
+│   └── trading/       # Main executable file
+├── docker-compose.yml # File for running the service with PostgreSQL and Redpanda
+├── internal/          # Internal packages
+│   ├── app/           # Application and its components
+│   │   ├── accounts/  # API handlers for accounts
+│   │   ├── finance/   # API handlers for finances
+│   │   ├── kafka/     # Kafka/Redpanda handlers
+│   │   └── orders/    # API handlers for orders
+│   ├── config/        # Configuration
+│   ├── dependency/    # Clients for external services
+│   ├── entity/        # Domain models
+│   └── store/         # Storage interfaces
+│       └── postgres/  # PostgreSQL implementation of storages
+├── migrations/        # SQL migrations for PostgreSQL
+├── scripts/           # Helper scripts
+├── Taskfile.yml       # Task file for automation
+└── tools/             # Helper tools
+    └── kafka-producer/ # Utility for sending test messages
 ```
 
-## Доменная модель
+## Domain Model
 
 ### Account
-Представляет торговый аккаунт пользователя с балансом и статусом.
+Represents a user's trading account with balance and status.
 
 ### Order
-Представляет заказ на покупку или продажу инструмента.
+Represents an order to buy or sell an instrument.
 
 ### Deposit
-Представляет операцию внесения средств на аккаунт.
+Represents a deposit operation to an account.
 
-## База данных
+## Database
 
-Сервис использует PostgreSQL для хранения данных. Структура базы данных описана в SQL-миграциях в директории `migrations/`.
+The service uses PostgreSQL for data storage. The database structure is described in SQL migrations in the `migrations/` directory.
 
-## Redpanda (Kafka-совместимый брокер)
+## Redpanda (Kafka-compatible broker)
 
-Сервис использует Redpanda для получения событий от других сервисов:
-- `origination.account` - события создания аккаунтов
-- `partnerconsumer.deposit` - события обновления статусов депозитов
-- `partnerconsumer.order` - события обновления статусов заказов
+The service uses Redpanda to receive events from other services:
+- `origination.account` - account creation events
+- `partnerconsumer.deposit` - deposit status update events
+- `partnerconsumer.order` - order status update events
 
-Redpanda предоставляет веб-интерфейс (Redpanda Console) для просмотра топиков и сообщений, доступный по адресу http://localhost:8080.
+Redpanda provides a web interface (Redpanda Console) for viewing topics and messages, available at http://localhost:8080.
 
-## Запуск с использованием Task
+## Running using Task
 
-Проект использует [Task](https://taskfile.dev/) для автоматизации различных команд. Сначала установите Task, затем используйте следующие команды:
+The project uses [Task](https://taskfile.dev/) for automating various commands. First install Task, then use the following commands:
 
 ```bash
-# Просмотр доступных задач
+# View available tasks
 task
 
-# Запуск проекта
+# Run the project
 task docker:up
 
-# Запуск миграций
+# Run migrations
 task docker:migration:up
 
-# Просмотр логов
+# View logs
 task docker:logs:trading
 
-# Отправка тестовых событий
+# Send test events
 task kafka:send:account
 task kafka:send:deposit
 task kafka:send:order
 
-# Остановка проекта
+# Stop the project
 task docker:down
 ```
 
-## Запуск с использованием Docker Compose
+## Running using Docker Compose
 
 ```bash
-# Запуск сервиса с PostgreSQL и Redpanda
+# Running service with PostgreSQL and Redpanda
 docker-compose up -d
 
-# Просмотр логов
+# View logs
 docker-compose logs -f trading
 
-# Доступ к веб-интерфейсу Redpanda Console
-# Откройте в браузере http://localhost:8080
+# Access Redpanda Console web interface
+# Open in browser http://localhost:8080
 ```
 
-## Локальный запуск
+## Local running
 
 ```bash
-# Создание и миграция базы данных
+# Create and migrate database
 psql -c "CREATE DATABASE trading;"
 migrate -source file://migrations -database "postgres://postgres:postgres@localhost:5432/trading?sslmode=disable" up
 
-# Запуск сервиса
+# Run service
 go run cmd/trading/main.go
 ```
 
-## Тестирование с Redpanda
+## Testing with Redpanda
 
-Для отправки тестовых сообщений можно использовать утилиту kafka-producer (она работает и с Redpanda):
+For sending test messages, you can use the kafka-producer utility (it works with Redpanda too):
 
 ```bash
-# Отправка события создания аккаунта
+# Send account creation event
 go run tools/kafka-producer/main.go -broker=localhost:9092 -type=account
 
-# Отправка события депозита
+# Send deposit event
 go run tools/kafka-producer/main.go -broker=localhost:9092 -type=deposit
 
-# Отправка события заказа
+# Send order event
 go run tools/kafka-producer/main.go -broker=localhost:9092 -type=order
 ```
 
-Также можно использовать Redpanda Console для просмотра топиков и сообщений:
-- Откройте в браузере http://localhost:8080
-- Перейдите в раздел "Topics"
-- Выберите нужный топик и просмотрите сообщения
+You can also use Redpanda Console to view topics and messages:
+- Open in browser http://localhost:8080
+- Go to "Topics" section
+- Select the required topic and view messages
 
-## Переменные окружения
+## Environment Variables
 
-- `GRPC_PORT` - порт для gRPC-сервера (по умолчанию "50051")
-- `PARTNER_PROXY_ADDRESS` - адрес сервиса PartnerProxy (по умолчанию "localhost:50052")
-- `KAFKA_BROKER` - адрес Redpanda брокера (по умолчанию "localhost:9092")
-- `KAFKA_GROUP_ID` - ID группы (по умолчанию "trading")
-- `KAFKA_ACCOUNT_TOPIC` - топик для событий аккаунтов (по умолчанию "origination.account")
-- `KAFKA_DEPOSIT_EVENT_TOPIC` - топик для событий депозитов (по умолчанию "partnerconsumer.deposit")
-- `KAFKA_ORDER_EVENT_TOPIC` - топик для событий заказов (по умолчанию "partnerconsumer.order")
-- `DB_HOST` - хост базы данных (по умолчанию "localhost")
-- `DB_PORT` - порт базы данных (по умолчанию "5432")
-- `DB_USER` - пользователь базы данных (по умолчанию "postgres")
-- `DB_PASSWORD` - пароль базы данных (по умолчанию "postgres")
-- `DB_NAME` - имя базы данных (по умолчанию "trading")
-- `DB_SSLMODE` - режим SSL для базы данных (по умолчанию "disable")
+- `GRPC_PORT` - port for gRPC server (default "50051")
+- `PARTNER_PROXY_ADDRESS` - PartnerProxy service address (default "localhost:50052")
+- `KAFKA_BROKER` - Redpanda broker address (default "localhost:9092")
+- `KAFKA_GROUP_ID` - group ID (default "trading")
+- `KAFKA_ACCOUNT_TOPIC` - topic for account events (default "origination.account")
+- `KAFKA_DEPOSIT_EVENT_TOPIC` - topic for deposit events (default "partnerconsumer.deposit")
+- `KAFKA_ORDER_EVENT_TOPIC` - topic for order events (default "partnerconsumer.order")
+- `DB_HOST` - database host (default "localhost")
+- `DB_PORT` - database port (default "5432")
+- `DB_USER` - database user (default "postgres")
+- `DB_PASSWORD` - database password (default "postgres")
+- `DB_NAME` - database name (default "trading")
+- `DB_SSLMODE` - SSL mode for database (default "disable")

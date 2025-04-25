@@ -17,17 +17,17 @@ import (
 
 //go:generate mockgen -destination=../mocks/mock_partner_proxy_order_client.go -package=mocks github.com/fdogov/trading/internal/dependency PartnerProxyOrderClient
 
-// PartnerProxyOrderClient представляет интерфейс для взаимодействия с сервисом заказов PartnerProxy
+// PartnerProxyOrderClient represents an interface for interacting with the PartnerProxy order service
 type PartnerProxyOrderClient interface {
 	CreateOrder(ctx context.Context, extAccountID string, symbol string, quantity decimal.Decimal, price decimal.Decimal, currency string, side entity.OrderSide) (string, entity.OrderStatus, error)
 }
 
-// partnerProxyOrderClient реализует интерфейс PartnerProxyOrderClient
+// partnerProxyOrderClient implements the PartnerProxyOrderClient interface
 type partnerProxyOrderClient struct {
 	client partnerproxyv1.OrderServiceClient
 }
 
-// NewPartnerProxyOrderClient создает новый экземпляр PartnerProxyOrderClient
+// NewPartnerProxyOrderClient creates a new instance of PartnerProxyOrderClient
 func NewPartnerProxyOrderClient(cfg config.Dependency) (PartnerProxyOrderClient, error) {
 	conn, err := NewGrpcConn(cfg)
 	if err != nil {
@@ -39,7 +39,7 @@ func NewPartnerProxyOrderClient(cfg config.Dependency) (PartnerProxyOrderClient,
 	}, nil
 }
 
-// CreateOrder создает заказ через PartnerProxyOrderClient
+// CreateOrder creates an order through PartnerProxyOrderClient
 func (c *partnerProxyOrderClient) CreateOrder(
 	ctx context.Context,
 	extAccountID string,
@@ -49,7 +49,7 @@ func (c *partnerProxyOrderClient) CreateOrder(
 	currency string,
 	side entity.OrderSide,
 ) (string, entity.OrderStatus, error) {
-	// Подготовка запроса
+	// Request preparation
 	var orderSide partnerproxyv1.OrderSide
 	switch side {
 	case entity.OrderSideBuy:
@@ -60,7 +60,7 @@ func (c *partnerProxyOrderClient) CreateOrder(
 		return "", entity.OrderStatusFailed, fmt.Errorf("invalid order side: %s", side)
 	}
 
-	// Создаем прото-объекты для decimal
+	// Create proto objects for decimal
 	quantityDecimal := &_type.Decimal{
 		Value: quantity.String(),
 	}
@@ -69,7 +69,7 @@ func (c *partnerProxyOrderClient) CreateOrder(
 		Value: price.String(),
 	}
 
-	// Отправляем запрос
+	// Send request
 	resp, err := c.client.CreateOrder(ctx, &partnerproxyv1.CreateOrderRequest{
 		IdempotencyKey: uuid.New().String(),
 		ExtAccountId:   extAccountID,
@@ -84,7 +84,7 @@ func (c *partnerProxyOrderClient) CreateOrder(
 		return "", entity.OrderStatusFailed, fmt.Errorf("failed to create order: %w", err)
 	}
 
-	// Определяем статус заказа
+	// Determine order status
 	var status entity.OrderStatus
 	switch resp.Status {
 	case "PENDING":

@@ -19,8 +19,8 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
-// ValidatedDepositEvent contains validated and transformed fields from the Kafka event.
-type ValidatedDepositEvent struct {
+// DepositEventData contains validated and transformed fields from the Kafka event.
+type DepositEventData struct {
 	ExtID          string
 	ExtAccountID   string
 	Amount         decimal.Decimal
@@ -95,7 +95,7 @@ func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) er
 	return c.saveEvent(ctx, depositEvent)
 }
 
-func (c *DepositConsumer) saveEvent(ctx context.Context, event *ValidatedDepositEvent) error {
+func (c *DepositConsumer) saveEvent(ctx context.Context, event *DepositEventData) error {
 	// Save event for idempotency
 	eventEntity := entity.NewEvent(
 		entity.EventTypeDeposit,
@@ -111,7 +111,7 @@ func (c *DepositConsumer) saveEvent(ctx context.Context, event *ValidatedDeposit
 func (c *DepositConsumer) sendToOperationFeed(
 	ctx context.Context,
 	deposit *entity.Deposit,
-	depositEvent *ValidatedDepositEvent,
+	depositEvent *DepositEventData,
 ) error {
 	if !deposit.IsCompleted() {
 		return nil // Do not send notification if deposit is not completed
@@ -141,7 +141,7 @@ func (c *DepositConsumer) sendToOperationFeed(
 	return nil
 }
 
-func (c *DepositConsumer) unmarshalAndValidateEvent(ctx context.Context, message []byte) (*ValidatedDepositEvent, error) {
+func (c *DepositConsumer) unmarshalAndValidateEvent(ctx context.Context, message []byte) (*DepositEventData, error) {
 	// Parse the Kafka event
 	var event partnerconsumerkafkav1.DepositEvent
 	if err := json.Unmarshal(message, &event); err != nil {
@@ -158,8 +158,8 @@ func (c *DepositConsumer) unmarshalAndValidateEvent(ctx context.Context, message
 }
 
 // validateAndParseEvent validates the deposit event and returns a structure with parsed values.
-func (c *DepositConsumer) validateAndParseEvent(event *partnerconsumerkafkav1.DepositEvent) (*ValidatedDepositEvent, error) {
-	validated := new(ValidatedDepositEvent)
+func (c *DepositConsumer) validateAndParseEvent(event *partnerconsumerkafkav1.DepositEvent) (*DepositEventData, error) {
+	validated := new(DepositEventData)
 	var err error
 
 	if event == nil {
@@ -232,7 +232,7 @@ func (c *DepositConsumer) validateAndParseEvent(event *partnerconsumerkafkav1.De
 	return validated, nil
 }
 
-func (c *DepositConsumer) handleDeposit(ctx context.Context, depositEvent *ValidatedDepositEvent) (*entity.Deposit, error) {
+func (c *DepositConsumer) handleDeposit(ctx context.Context, depositEvent *DepositEventData) (*entity.Deposit, error) {
 	// Get deposit by external ID
 	deposit, err := c.depositStore.GetByExtID(ctx, depositEvent.ExtID)
 	if err == nil {
@@ -250,7 +250,7 @@ func (c *DepositConsumer) handleDeposit(ctx context.Context, depositEvent *Valid
 // handleNewDeposit handles a deposit event for a new deposit
 func (c *DepositConsumer) handleNewDeposit(
 	ctx context.Context,
-	event *ValidatedDepositEvent,
+	event *DepositEventData,
 ) (*entity.Deposit, error) {
 	// First, get the account by external account ID
 	account, err := c.accountStore.GetByExtID(ctx, event.ExtAccountID)
@@ -302,7 +302,7 @@ func (c *DepositConsumer) handleNewDeposit(
 func (c *DepositConsumer) handleExistingDeposit(
 	ctx context.Context,
 	deposit *entity.Deposit,
-	event *ValidatedDepositEvent,
+	event *DepositEventData,
 ) (*entity.Deposit, error) {
 
 	// If deposit becomes completed, update account balance
@@ -329,7 +329,7 @@ func (c *DepositConsumer) handleExistingDeposit(
 // updateAccountBalance updates the account balance when a deposit is completed
 func (c *DepositConsumer) updateAccountBalance(
 	ctx context.Context,
-	event *ValidatedDepositEvent,
+	event *DepositEventData,
 	deposit *entity.Deposit,
 ) error {
 	// Update balance with calculated difference
@@ -348,7 +348,7 @@ func (c *DepositConsumer) updateAccountBalance(
 }
 
 // mapToDeposit creates a new Deposit entity from Kafka event
-func (c *DepositConsumer) mapToDeposit(accountID uuid.UUID, event *ValidatedDepositEvent) *entity.Deposit {
+func (c *DepositConsumer) mapToDeposit(accountID uuid.UUID, event *DepositEventData) *entity.Deposit {
 	now := time.Now()
 
 	return &entity.Deposit{

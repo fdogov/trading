@@ -1,10 +1,10 @@
 #!/bin/bash
-# Скрипт для очистки контейнеров Podman
+# Script for cleaning up Podman containers
 
-echo "Удаляем контейнеры..."
+echo "Removing containers..."
 podman rm -f trading-postgres trading-redpanda trading-redpanda-console trading-redpanda-setup trading-migrations trading-service || true
 
-echo "Удаляем pod..."
+echo "Removing pod..."
 podman pod rm -f pod_trading || true
 
-echo "Очистка завершена. Теперь можно заново запустить compose:up"
+echo "Cleanup completed. Now you can restart compose:up"
