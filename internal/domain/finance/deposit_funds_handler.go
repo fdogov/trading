@@ -17,11 +17,16 @@ import (
 	"github.com/fdogov/trading/internal/store"
 )
 
+// parsedDepositRequest содержит разобранные и проверенные данные из запроса на пополнение.
+type parsedDepositRequest struct {
+	accountID uuid.UUID
+	amount    decimal.Decimal
+}
+
 // depositFundsHandler handles the deposit funds operations
 type depositFundsHandler struct {
 	depositStore              store.DepositStore
 	accountStore              store.AccountStore
-	dbTransactor              store.DBTransactor
 	partnerProxyFinanceClient dependency.PartnerProxyFinanceClient
 }
 
@@ -29,13 +34,11 @@ type depositFundsHandler struct {
 func newDepositFundsHandler(
 	depositStore store.DepositStore,
 	accountStore store.AccountStore,
-	dbTransactor store.DBTransactor,
 	partnerProxyFinanceClient dependency.PartnerProxyFinanceClient,
 ) *depositFundsHandler {
 	return &depositFundsHandler{
 		depositStore:              depositStore,
 		accountStore:              accountStore,
-		dbTransactor:              dbTransactor,
 		partnerProxyFinanceClient: partnerProxyFinanceClient,
 	}
 }
@@ -44,68 +47,86 @@ func newDepositFundsHandler(
 // It validates the input, checks the account status, creates a deposit,
 // communicates with the partner service, and updates the account balance if needed.
 func (h *depositFundsHandler) Handle(ctx context.Context, req *tradingv1.DepositFundsRequest) (*tradingv1.DepositFundsResponse, error) {
-	// Validate input parameters
+	parsedReq, err := h.parseAndValidateRequest(req)
+	if err != nil {
+		return nil, err // Ошибка уже в формате status.Error
+	}
+
+	// Получаем или создаем депозит
+	deposit, err := h.getOrCreateDeposit(ctx, req.IdempotencyKey, parsedReq, req.Currency)
+	if err != nil {
+		// Обрабатываем ошибку получения/создания депозита (уже обернута)
+		// Можно добавить логирование или специфическую обработку
+		// Возвращаем внутреннюю ошибку, так как это проблема с БД или логикой
+		return nil, status.Errorf(codes.Internal, "failed to get or create deposit: %v", err)
+	}
+
+	// Если депозит уже в терминальном статусе (завершен или упал), возвращаем его статус
+	if deposit.IsTerminated() {
+		return &tradingv1.DepositFundsResponse{
+			AccountId: req.AccountId,
+			Status:    mapDepositStatusToProto(deposit.Status),
+		}, nil
+	}
+
+	// Check account existence and status
+	account, err := h.getAndValidateAccount(ctx, parsedReq.accountID, req.Currency)
+	if err != nil {
+		return nil, err
+	}
+
+	// Process deposit with partner service
+	extDepositID, status, err := h.partnerProxyFinanceClient.CreateDeposit(
+		ctx,
+		account.ExtID,
+		parsedReq.amount,
+		req.Currency,
+	)
+
+	// Update deposit with external data
+	deposit.ExtID = extDepositID
+	deposit.Status = status
+	deposit.UpdatedAt = time.Now()
+
+	if err := h.depositStore.Update(ctx, deposit); err != nil {
+		return nil, fmt.Errorf("failed to update deposit with external ID: %w", err)
+	}
+
+	return &tradingv1.DepositFundsResponse{
+		AccountId: req.AccountId,
+		Status:    mapDepositStatusToProto(deposit.Status),
+	}, nil
+}
+
+// parseAndValidateRequest проверяет и разбирает входной запрос на пополнение.
+// Возвращает структуру с разобранными данными или ошибку, если проверка не удалась.
+func (h *depositFundsHandler) parseAndValidateRequest(req *tradingv1.DepositFundsRequest) (*parsedDepositRequest, error) {
+	// Проверка входных параметров
 	if err := h.validateRequest(req); err != nil {
 		return nil, err
 	}
 
 	accountID, err := uuid.Parse(req.AccountId)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid account ID: %v", err)
+		return nil, status.Errorf(codes.InvalidArgument, "неверный ID аккаунта: %v", err)
 	}
 
 	amount, err := decimal.NewFromString(req.Amount.Value)
 	if err != nil {
-		return nil, status.Errorf(codes.InvalidArgument, "invalid amount: %v", err)
+		// Убедимся, что используется правильное поле для значения суммы
+		if req.Amount == nil || req.Amount.Value == "" {
+			return nil, status.Errorf(codes.InvalidArgument, "сумма обязательна")
+		}
+		return nil, status.Errorf(codes.InvalidArgument, "неверная сумма: %v", err)
+	}
+	// Дополнительная проверка, что сумма положительная
+	if amount.Sign() <= 0 {
+		return nil, status.Errorf(codes.InvalidArgument, "сумма должна быть положительной")
 	}
 
-	var depositStatus entity.DepositStatus
-	err = h.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Check account existence and status
-		account, err := h.getAndValidateAccount(txCtx, accountID, req.Currency)
-		if err != nil {
-			return err
-		}
-
-		// Create and save deposit entity
-		deposit := h.createDepositEntity(accountID, amount, req.Currency)
-		if err := h.depositStore.Create(txCtx, deposit); err != nil {
-			return fmt.Errorf("failed to create deposit: %w", err)
-		}
-
-		// Process deposit with partner service
-		extDepositID, status, err := h.processDepositWithPartner(txCtx, account.ExtID, amount, req.Currency)
-		if err != nil {
-			return err
-		}
-
-		// Update deposit with external data
-		deposit.ExtID = extDepositID
-		deposit.Status = status
-		deposit.UpdatedAt = time.Now()
-		depositStatus = status
-
-		if err := h.depositStore.Update(txCtx, deposit); err != nil {
-			return fmt.Errorf("failed to update deposit with external ID: %w", err)
-		}
-
-		// Update account balance if deposit completed successfully
-		if status == entity.DepositStatusCompleted {
-			if err := h.accountStore.UpdateBalance(txCtx, accountID, amount.String()); err != nil {
-				return fmt.Errorf("failed to update account balance: %w", err)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return nil, h.handleTransactionError(err)
-	}
-
-	return &tradingv1.DepositFundsResponse{
-		AccountId: req.AccountId,
-		Status:    mapDepositStatusToProto(depositStatus),
+	return &parsedDepositRequest{
+		accountID: accountID,
+		amount:    amount,
 	}, nil
 }
 
@@ -123,7 +144,40 @@ func (h *depositFundsHandler) validateRequest(req *tradingv1.DepositFundsRequest
 		return status.Errorf(codes.InvalidArgument, "amount is required")
 	}
 
+	if req.IdempotencyKey == "" {
+		return status.Errorf(codes.InvalidArgument, "idempotency key is required")
+	}
+
 	return nil
+}
+
+// getOrCreateDeposit получает существующий депозит по ключу идемпотентности
+// или создает новый, если он не найден.
+func (h *depositFundsHandler) getOrCreateDeposit(
+	ctx context.Context,
+	idempotencyKey string,
+	parsedReq *parsedDepositRequest,
+	currency string,
+) (*entity.Deposit, error) {
+	// Проверяем существование депозита с таким ключом идемпотентности
+	deposit, err := h.depositStore.GetByIdempotencyKey(ctx, idempotencyKey)
+	if err == nil {
+		// Депозит найден, возвращаем его
+		return deposit, nil
+	}
+
+	// Если ошибка не "не найдено", возвращаем ошибку
+	if !errors.Is(err, entity.ErrNotFound) {
+		return nil, fmt.Errorf("failed to check idempotency key: %w", err)
+	}
+
+	// Депозит не найден, создаем новый
+	newDeposit := h.createDepositEntity(parsedReq.accountID, parsedReq.amount, currency, idempotencyKey)
+	if err := h.depositStore.Create(ctx, newDeposit); err != nil {
+		return nil, fmt.Errorf("failed to create deposit: %w", err)
+	}
+	// Возвращаем только что созданный депозит
+	return newDeposit, nil
 }
 
 // getAndValidateAccount retrieves an account and validates its status and currency
@@ -155,45 +209,18 @@ func (h *depositFundsHandler) getAndValidateAccount(ctx context.Context, account
 }
 
 // createDepositEntity creates a new deposit entity with pending status
-func (h *depositFundsHandler) createDepositEntity(accountID uuid.UUID, amount decimal.Decimal, currency string) *entity.Deposit {
+func (h *depositFundsHandler) createDepositEntity(accountID uuid.UUID, amount decimal.Decimal, currency string, idempotencyKey string) *entity.Deposit {
 	now := time.Now()
 	return &entity.Deposit{
-		ID:        uuid.New(),
-		AccountID: accountID,
-		Amount:    amount,
-		Currency:  currency,
-		Status:    entity.DepositStatusPending,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:             uuid.New(),
+		AccountID:      accountID,
+		Amount:         amount,
+		Currency:       currency,
+		Status:         entity.DepositStatusPending,
+		IdempotencyKey: idempotencyKey,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
-}
-
-// processDepositWithPartner creates a deposit with the partner service
-func (h *depositFundsHandler) processDepositWithPartner(
-	ctx context.Context,
-	accountExtID string,
-	amount decimal.Decimal,
-	currency string,
-) (string, entity.DepositStatus, error) {
-	extDepositID, status, err := h.partnerProxyFinanceClient.CreateDeposit(
-		ctx,
-		accountExtID,
-		amount,
-		currency,
-	)
-	if err != nil {
-		return "", entity.DepositStatusFailed, fmt.Errorf("failed to create deposit at partner: %w", err)
-	}
-
-	return extDepositID, status, nil
-}
-
-// handleTransactionError processes errors from the transaction execution
-func (h *depositFundsHandler) handleTransactionError(err error) error {
-	if st, ok := status.FromError(err); ok {
-		return st.Err()
-	}
-	return status.Errorf(codes.Internal, "failed to deposit funds: %v", err)
 }
 
 // mapDepositStatusToProto maps entity deposit status to protobuf deposit status

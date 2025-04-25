@@ -17,11 +17,10 @@ type Server struct {
 func NewServer(
 	depositStore store.DepositStore,
 	accountStore store.AccountStore,
-	dbTransactor store.DBTransactor,
 	partnerProxyFinanceClient dependency.PartnerProxyFinanceClient,
 ) *Server {
 	return &Server{
-		depositFundsHandler: newDepositFundsHandler(depositStore, accountStore, dbTransactor, partnerProxyFinanceClient),
+		depositFundsHandler: newDepositFundsHandler(depositStore, accountStore, partnerProxyFinanceClient),
 	}
 }
 

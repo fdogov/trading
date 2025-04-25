@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS deposits (
     currency        VARCHAR(10) NOT NULL,
     status          VARCHAR(50) NOT NULL CHECK (status IN ('PENDING', 'COMPLETED', 'FAILED')),
     ext_id          VARCHAR(255),
+    idempotency_key VARCHAR(255) NOT NULL,
     created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
     updated_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now()
 );
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS deposits (
 CREATE INDEX IF NOT EXISTS deposits_account_id_idx ON deposits (account_id);
 CREATE INDEX IF NOT EXISTS deposits_created_at_idx ON deposits (created_at);
 CREATE UNIQUE INDEX IF NOT EXISTS deposits_ext_id_unique_idx ON deposits (ext_id) WHERE ext_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS deposits_idempotency_key_idx ON deposits (idempotency_key);
 
 -- +migrate Down
 DROP TABLE IF EXISTS deposits;

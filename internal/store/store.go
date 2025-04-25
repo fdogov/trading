@@ -48,8 +48,14 @@ type DepositStore interface {
 	// Create создает новый депозит
 	Create(ctx context.Context, deposit *entity.Deposit) error
 
+	// GetByID получает депозит по ID
+	GetByID(ctx context.Context, id uuid.UUID) (*entity.Deposit, error)
+
 	// GetByExtID получает депозит по внешнему ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Deposit, error)
+
+	// GetByIdempotencyKey получает депозит по ключу идемпотентности
+	GetByIdempotencyKey(ctx context.Context, key string) (*entity.Deposit, error)
 
 	// Update обновляет депозит
 	Update(ctx context.Context, deposit *entity.Deposit) error

@@ -26,9 +26,9 @@ func NewDepositStore(db *DB) *DepositStore {
 func (s *DepositStore) Create(ctx context.Context, deposit *entity.Deposit) error {
 	const query = `
 		INSERT INTO deposits (
-			id, account_id, amount, currency, status, ext_id, created_at, updated_at
+			id, account_id, amount, currency, status, ext_id, idempotency_key, created_at, updated_at
 		) VALUES (
-			:id, :account_id, :amount, :currency, :status, :ext_id, :created_at, :updated_at
+			:id, :account_id, :amount, :currency, :status, :ext_id, :idempotency_key, :created_at, :updated_at
 		);
 	`
 
@@ -67,6 +67,22 @@ func (s *DepositStore) GetByExtID(ctx context.Context, extID string) (*entity.De
 			return nil, entity.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get deposit by ext ID: %w", err)
+	}
+
+	return &deposit, nil
+}
+
+// GetByIdempotencyKey получает депозит по ключу идемпотентности
+func (s *DepositStore) GetByIdempotencyKey(ctx context.Context, key string) (*entity.Deposit, error) {
+	const query = `SELECT * FROM deposits WHERE idempotency_key = $1;`
+
+	var deposit entity.Deposit
+	err := sqlx.GetContext(ctx, s.db.Replica(), &deposit, query, key)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, entity.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to get deposit by idempotency key: %w", err)
 	}
 
 	return &deposit, nil

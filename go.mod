@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/IBM/sarama v1.45.1
-	github.com/fdogov/contracts v0.0.0-20250423144957-ed78047235cd
+	github.com/fdogov/contracts v0.0.0-20250425075959-b3290aa524e8
 	github.com/google/uuid v1.3.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/lib/pq v1.10.9

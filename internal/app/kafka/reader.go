@@ -111,8 +111,6 @@ func (r *Reader) Messages() <-chan Message {
 
 // Close закрывает читателя
 func (r *Reader) Close() error {
-	ctx := context.Background()
-
 	close(r.shutdownCh)
 
 	// Закрываем все консьюмеры разделов

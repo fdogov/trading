@@ -9,14 +9,15 @@ import (
 
 // Deposit представляет депозит средств на аккаунт
 type Deposit struct {
-	ID        uuid.UUID       `db:"id"`
-	AccountID uuid.UUID       `db:"account_id"`
-	Amount    decimal.Decimal `db:"amount"`
-	Currency  string          `db:"currency"`
-	Status    DepositStatus   `db:"status"`
-	ExtID     string          `db:"ext_id"`
-	CreatedAt time.Time       `db:"created_at"`
-	UpdatedAt time.Time       `db:"updated_at"`
+	ID             uuid.UUID       `db:"id"`
+	AccountID      uuid.UUID       `db:"account_id"`
+	Amount         decimal.Decimal `db:"amount"`
+	Currency       string          `db:"currency"`
+	Status         DepositStatus   `db:"status"`
+	ExtID          string          `db:"ext_id"`
+	IdempotencyKey string          `db:"idempotency_key"`
+	CreatedAt      time.Time       `db:"created_at"`
+	UpdatedAt      time.Time       `db:"updated_at"`
 }
 
 type DepositStatus string
@@ -38,4 +39,8 @@ func (d *Deposit) IsCompleted() bool {
 
 func (d *Deposit) IsFailed() bool {
 	return d.Status == DepositStatusFailed
+}
+
+func (d *Deposit) IsTerminated() bool {
+	return d.IsCompleted() || d.IsFailed()
 }

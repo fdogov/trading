@@ -55,7 +55,7 @@ func NewApp(
 	// Создаем gRPC серверы
 	accountsServer := accounts.NewServer(accountStore)
 	ordersServer := orders.NewServer(orderStore, accountStore, dbTransactor, partnerProxyOrderClient)
-	financeServer := finance.NewServer(depositStore, accountStore, dbTransactor, partnerProxyFinanceClient)
+	financeServer := finance.NewServer(depositStore, accountStore, partnerProxyFinanceClient)
 
 	// Создаем Kafka консьюмеры
 	kafkaConsumers := kafka.NewKafkaConsumers(
