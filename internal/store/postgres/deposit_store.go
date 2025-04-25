@@ -12,17 +12,17 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-// DepositStore реализует интерфейс store.DepositStore для PostgreSQL
+// DepositStore implements the store.DepositStore interface for PostgreSQL
 type DepositStore struct {
 	db *DB
 }
 
-// NewDepositStore создает новый экземпляр DepositStore
+// NewDepositStore creates a new instance of DepositStore
 func NewDepositStore(db *DB) *DepositStore {
 	return &DepositStore{db: db}
 }
 
-// Create создает новый депозит
+// Create creates a new deposit
 func (s *DepositStore) Create(ctx context.Context, deposit *entity.Deposit) error {
 	const query = `
 		INSERT INTO deposits (
@@ -40,7 +40,7 @@ func (s *DepositStore) Create(ctx context.Context, deposit *entity.Deposit) erro
 	return nil
 }
 
-// GetByID получает депозит по ID
+// GetByID gets a deposit by ID
 func (s *DepositStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Deposit, error) {
 	const query = `SELECT * FROM deposits WHERE id = $1;`
 
@@ -56,7 +56,7 @@ func (s *DepositStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Depos
 	return &deposit, nil
 }
 
-// GetByExtID получает депозит по внешнему ID
+// GetByExtID gets a deposit by external ID
 func (s *DepositStore) GetByExtID(ctx context.Context, extID string) (*entity.Deposit, error) {
 	const query = `SELECT * FROM deposits WHERE ext_id = $1;`
 
@@ -72,7 +72,7 @@ func (s *DepositStore) GetByExtID(ctx context.Context, extID string) (*entity.De
 	return &deposit, nil
 }
 
-// GetByIdempotencyKey получает депозит по ключу идемпотентности
+// GetByIdempotencyKey gets a deposit by idempotency key
 func (s *DepositStore) GetByIdempotencyKey(ctx context.Context, key string) (*entity.Deposit, error) {
 	const query = `SELECT * FROM deposits WHERE idempotency_key = $1;`
 
@@ -88,7 +88,7 @@ func (s *DepositStore) GetByIdempotencyKey(ctx context.Context, key string) (*en
 	return &deposit, nil
 }
 
-// Update обновляет депозит
+// Update updates a deposit
 func (s *DepositStore) Update(ctx context.Context, deposit *entity.Deposit) error {
 	const query = `
 		UPDATE deposits SET
@@ -109,7 +109,7 @@ func (s *DepositStore) Update(ctx context.Context, deposit *entity.Deposit) erro
 	return nil
 }
 
-// UpdateStatus обновляет статус депозита
+// UpdateStatus updates the deposit status
 func (s *DepositStore) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.DepositStatus) error {
 	const query = `
 		UPDATE deposits SET
@@ -126,7 +126,7 @@ func (s *DepositStore) UpdateStatus(ctx context.Context, id uuid.UUID, status en
 	return nil
 }
 
-// UpdateExternalData обновляет внешний ID и статус депозита
+// UpdateExternalData updates the external ID and status of a deposit
 func (s *DepositStore) UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error {
 	const query = `
 		UPDATE deposits SET

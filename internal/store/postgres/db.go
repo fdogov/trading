@@ -9,12 +9,12 @@ import (
 	"github.com/fdogov/trading/internal/config"
 )
 
-// DB представляет соединение с базой данных PostgreSQL
+// DB represents a connection to PostgreSQL database
 type DB struct {
 	db *sqlx.DB
 }
 
-// NewDB создает новое подключение к базе данных PostgreSQL
+// NewDB creates a new connection to PostgreSQL database
 func NewDB(cfg config.Database) (*DB, error) {
 	dsn := fmt.Sprintf(
 		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
@@ -29,32 +29,32 @@ func NewDB(cfg config.Database) (*DB, error) {
 	return &DB{db: db}, nil
 }
 
-// Primary возвращает соединение с основной базой данных (для записи)
+// Primary returns the primary database connection (for writing)
 func (d *DB) Primary(ctx context.Context) *sqlx.DB {
 	return d.db
 }
 
-// Replica возвращает соединение с репликой базы данных (для чтения)
+// Replica returns a database replica connection (for reading)
 func (d *DB) Replica() *sqlx.DB {
 	return d.db
 }
 
-// Close закрывает соединение с базой данных
+// Close closes the database connection
 func (d *DB) Close() error {
 	return d.db.Close()
 }
 
-// Transactor реализует интерфейс store.DBTransactor для работы с транзакциями
+// Transactor implements the store.DBTransactor interface for working with transactions
 type Transactor struct {
 	db *DB
 }
 
-// NewTransactor создает новый экземпляр Transactor
+// NewTransactor creates a new instance of Transactor
 func NewTransactor(db *DB) *Transactor {
 	return &Transactor{db: db}
 }
 
-// Exec выполняет функцию в транзакции
+// Exec executes a function within a transaction
 func (t *Transactor) Exec(ctx context.Context, fn func(ctx context.Context) error) error {
 	tx, err := t.db.Primary(ctx).BeginTxx(ctx, nil)
 	if err != nil {

@@ -2,7 +2,6 @@ package finance
 
 import (
 	"context"
-	"go.uber.org/zap"
 
 	tradingv1 "github.com/fdogov/contracts/gen/go/backend/trading/v1"
 	"github.com/fdogov/trading/internal/dependency"
@@ -19,10 +18,9 @@ func NewServer(
 	depositStore store.DepositStore,
 	accountStore store.AccountStore,
 	partnerProxyFinanceClient dependency.PartnerProxyFinanceClient,
-	logger *zap.Logger,
 ) *Server {
 	return &Server{
-		depositFundsHandler: NewDepositFundsHandler(depositStore, accountStore, partnerProxyFinanceClient, logger),
+		depositFundsHandler: NewDepositFundsHandler(depositStore, accountStore, partnerProxyFinanceClient),
 	}
 }
 

@@ -5,25 +5,25 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 
 	"github.com/fdogov/trading/internal/entity"
 )
 
-// AccountStore реализует интерфейс store.AccountStore для PostgreSQL
+// AccountStore implements the store.AccountStore interface for PostgreSQL
 type AccountStore struct {
 	db *DB
 }
 
-// NewAccountStore создает новый экземпляр AccountStore
+// NewAccountStore creates a new instance of AccountStore
 func NewAccountStore(db *DB) *AccountStore {
 	return &AccountStore{db: db}
 }
 
-// Create создает новый аккаунт
+// Create creates a new account
 func (s *AccountStore) Create(ctx context.Context, account *entity.Account) error {
 	const query = `
 		INSERT INTO accounts (
@@ -41,7 +41,7 @@ func (s *AccountStore) Create(ctx context.Context, account *entity.Account) erro
 	return nil
 }
 
-// GetByID получает аккаунт по ID
+// GetByID gets an account by ID
 func (s *AccountStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Account, error) {
 	const query = `SELECT * FROM accounts WHERE id = $1;`
 
@@ -57,7 +57,7 @@ func (s *AccountStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Accou
 	return &account, nil
 }
 
-// GetByUserID получает аккаунты пользователя по UserID
+// GetByUserID gets accounts by UserID
 func (s *AccountStore) GetByUserID(ctx context.Context, userID string) ([]*entity.Account, error) {
 	const query = `SELECT * FROM accounts WHERE user_id = $1;`
 
@@ -70,7 +70,7 @@ func (s *AccountStore) GetByUserID(ctx context.Context, userID string) ([]*entit
 	return accounts, nil
 }
 
-// GetByExtID получает аккаунт по внешнему ID
+// GetByExtID gets an account by external ID
 func (s *AccountStore) GetByExtID(ctx context.Context, extID string) (*entity.Account, error) {
 	const query = `SELECT * FROM accounts WHERE ext_id = $1;`
 
@@ -86,7 +86,7 @@ func (s *AccountStore) GetByExtID(ctx context.Context, extID string) (*entity.Ac
 	return &account, nil
 }
 
-// Update обновляет аккаунт
+// Update updates an account
 func (s *AccountStore) Update(ctx context.Context, account *entity.Account) error {
 	const query = `
 		UPDATE accounts SET
@@ -107,7 +107,7 @@ func (s *AccountStore) Update(ctx context.Context, account *entity.Account) erro
 	return nil
 }
 
-// UpdateBalance обновляет баланс аккаунта
+// UpdateBalance updates the account balance
 func (s *AccountStore) UpdateBalance(ctx context.Context, id uuid.UUID, amount decimal.Decimal) error {
 	const query = `
 		UPDATE accounts SET
@@ -124,7 +124,7 @@ func (s *AccountStore) UpdateBalance(ctx context.Context, id uuid.UUID, amount d
 	return nil
 }
 
-// GetByExtIDAndUserID получает аккаунт по внешнему ID и UserID
+// GetByExtIDAndUserID gets an account by external ID and UserID
 func (s *AccountStore) GetByExtIDAndUserID(ctx context.Context, extID, userID string) (*entity.Account, error) {
 	const query = `SELECT * FROM accounts WHERE ext_id = $1 AND user_id = $2;`
 

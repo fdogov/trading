@@ -9,19 +9,19 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-// EventStore реализует интерфейс store.EventStore для PostgreSQL
+// EventStore implements the store.EventStore interface for PostgreSQL
 type EventStore struct {
 	db *DB
 }
 
-// NewEventStore создает новый экземпляр EventStore
+// NewEventStore creates a new instance of EventStore
 func NewEventStore(db *DB) *EventStore {
 	return &EventStore{
 		db: db,
 	}
 }
 
-// Create создает новое событие
+// Create creates a new event
 func (s *EventStore) Create(ctx context.Context, event *entity.Event) error {
 	query := `
 		INSERT INTO events (id, type, created_at)
@@ -43,7 +43,7 @@ func (s *EventStore) Create(ctx context.Context, event *entity.Event) error {
 	return nil
 }
 
-// GetByEventID получает событие по внешнему идентификатору и типу
+// GetByEventID gets an event by external identifier and type
 func (s *EventStore) GetByEventID(ctx context.Context, id string, eventType entity.EventType) (*entity.Event, error) {
 	query := `
 		SELECT *

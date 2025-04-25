@@ -3,13 +3,13 @@ package postgres
 import (
 	"fmt"
 
-	_ "github.com/lib/pq" // Драйвер PostgreSQL
+	_ "github.com/lib/pq" // PostgreSQL driver
 
 	"github.com/fdogov/trading/internal/config"
 	"github.com/fdogov/trading/internal/store"
 )
 
-// Store реализует все хранилища данных
+// Store implements all data stores
 type Store struct {
 	db           *DB
 	accountStore store.AccountStore
@@ -19,7 +19,7 @@ type Store struct {
 	dbTransactor store.DBTransactor
 }
 
-// NewStore создает новый экземпляр Store
+// NewStore creates a new instance of Store
 func NewStore(cfg config.Database) (*Store, error) {
 	db, err := NewDB(cfg)
 	if err != nil {
@@ -42,32 +42,32 @@ func NewStore(cfg config.Database) (*Store, error) {
 	}, nil
 }
 
-// AccountStore возвращает реализацию AccountStore
+// AccountStore returns the AccountStore implementation
 func (s *Store) AccountStore() store.AccountStore {
 	return s.accountStore
 }
 
-// OrderStore возвращает реализацию OrderStore
+// OrderStore returns the OrderStore implementation
 func (s *Store) OrderStore() store.OrderStore {
 	return s.orderStore
 }
 
-// DepositStore возвращает реализацию DepositStore
+// DepositStore returns the DepositStore implementation
 func (s *Store) DepositStore() store.DepositStore {
 	return s.depositStore
 }
 
-// EventStore возвращает реализацию EventStore
+// EventStore returns the EventStore implementation
 func (s *Store) EventStore() store.EventStore {
 	return s.eventStore
 }
 
-// DBTransactor возвращает реализацию DBTransactor
+// DBTransactor returns the DBTransactor implementation
 func (s *Store) DBTransactor() store.DBTransactor {
 	return s.dbTransactor
 }
 
-// Close закрывает соединение с базой данных
+// Close closes the database connection
 func (s *Store) Close() error {
 	return s.db.Close()
 }

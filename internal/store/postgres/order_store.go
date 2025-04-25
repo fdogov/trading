@@ -12,17 +12,17 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-// OrderStore реализует интерфейс store.OrderStore для PostgreSQL
+// OrderStore implements the store.OrderStore interface for PostgreSQL
 type OrderStore struct {
 	db *DB
 }
 
-// NewOrderStore создает новый экземпляр OrderStore
+// NewOrderStore creates a new instance of OrderStore
 func NewOrderStore(db *DB) *OrderStore {
 	return &OrderStore{db: db}
 }
 
-// Create создает новый заказ
+// Create creates a new order
 func (s *OrderStore) Create(ctx context.Context, order *entity.Order) error {
 	const query = `
 		INSERT INTO orders (
@@ -42,7 +42,7 @@ func (s *OrderStore) Create(ctx context.Context, order *entity.Order) error {
 	return nil
 }
 
-// GetByID получает заказ по ID
+// GetByID gets an order by ID
 func (s *OrderStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Order, error) {
 	const query = `SELECT * FROM orders WHERE id = $1;`
 
@@ -58,7 +58,7 @@ func (s *OrderStore) GetByID(ctx context.Context, id uuid.UUID) (*entity.Order, 
 	return &order, nil
 }
 
-// GetByExtID получает заказ по внешнему ID
+// GetByExtID gets an order by external ID
 func (s *OrderStore) GetByExtID(ctx context.Context, extID string) (*entity.Order, error) {
 	const query = `SELECT * FROM orders WHERE ext_id = $1;`
 
@@ -74,7 +74,7 @@ func (s *OrderStore) GetByExtID(ctx context.Context, extID string) (*entity.Orde
 	return &order, nil
 }
 
-// Update обновляет заказ
+// Update updates an order
 func (s *OrderStore) Update(ctx context.Context, order *entity.Order) error {
 	const query = `
 		UPDATE orders SET
@@ -100,7 +100,7 @@ func (s *OrderStore) Update(ctx context.Context, order *entity.Order) error {
 	return nil
 }
 
-// UpdateStatus обновляет статус заказа
+// UpdateStatus updates the order status
 func (s *OrderStore) UpdateStatus(ctx context.Context, id uuid.UUID, status entity.OrderStatus) error {
 	const query = `
 		UPDATE orders SET
