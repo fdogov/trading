@@ -89,7 +89,7 @@ func (h *createOrderHandler) handle(ctx context.Context, req *tradingv1.CreateOr
 
 	var order *entity.Order
 	err = h.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Проверяем аккаунт
+		// Check the account
 		account, err := h.accountStore.GetByID(txCtx, accountID)
 		if err != nil {
 			if errors.Is(err, entity.ErrNotFound) {
@@ -105,20 +105,20 @@ func (h *createOrderHandler) handle(ctx context.Context, req *tradingv1.CreateOr
 			return status.Errorf(codes.FailedPrecondition, "account is inactive")
 		}
 
-		// Для покупки проверяем достаточно ли средств
+		// For buy orders, check if there are sufficient funds
 		if side == entity.OrderSideBuy {
 			if !account.HasSufficientFunds(amount) {
 				return status.Errorf(codes.FailedPrecondition, "insufficient funds")
 			}
 
-			// Резервируем средства (уменьшаем баланс)
+			// Reserve funds (decrease balance)
 			err = h.accountStore.UpdateBalance(txCtx, accountID, amount.Neg())
 			if err != nil {
 				return fmt.Errorf("failed to update account balance: %w", err)
 			}
 		}
 
-		// Создаем заказ
+		// Create the order
 		now := time.Now()
 		order = &entity.Order{
 			ID:           uuid.New(),
@@ -135,13 +135,13 @@ func (h *createOrderHandler) handle(ctx context.Context, req *tradingv1.CreateOr
 			UpdatedAt:    now,
 		}
 
-		// Сохраняем заказ в базе
+		// Save the order in database
 		err = h.orderStore.Create(txCtx, order)
 		if err != nil {
 			return fmt.Errorf("failed to create order: %w", err)
 		}
 
-		// Создаем заказ у партнера
+		// Create order at the partner
 		extOrderID, orderStatus, err := h.partnerProxyOrderClient.CreateOrder(
 			txCtx,
 			account.ExtID,
@@ -155,7 +155,7 @@ func (h *createOrderHandler) handle(ctx context.Context, req *tradingv1.CreateOr
 			return fmt.Errorf("failed to create order at partner: %w", err)
 		}
 
-		// Обновляем заказ с данными от партнера
+		// Update order with partner data
 		order.ExtID = extOrderID
 		order.Status = orderStatus
 		order.UpdatedAt = time.Now()

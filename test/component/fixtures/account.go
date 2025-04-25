@@ -9,12 +9,12 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-// AccountFixture представляет строитель для создания фикстур аккаунтов
+// AccountFixture represents a builder for creating account fixtures
 type AccountFixture struct {
 	account *entity.Account
 }
 
-// NewAccount создает новый объект аккаунта для тестов
+// NewAccount creates a new account object for tests
 func NewAccount() *AccountFixture {
 	now := time.Now()
 	return &AccountFixture{
@@ -31,60 +31,60 @@ func NewAccount() *AccountFixture {
 	}
 }
 
-// WithID устанавливает ID аккаунта
+// WithID sets the account ID
 func (f *AccountFixture) WithID(id uuid.UUID) *AccountFixture {
 	f.account.ID = id
 	return f
 }
 
-// WithUserID устанавливает ID пользователя
+// WithUserID sets the user ID
 func (f *AccountFixture) WithUserID(userID string) *AccountFixture {
 	f.account.UserID = userID
 	return f
 }
 
-// WithExtID устанавливает внешний ID аккаунта
+// WithExtID sets the external ID of the account
 func (f *AccountFixture) WithExtID(extID string) *AccountFixture {
 	f.account.ExtID = extID
 	return f
 }
 
-// WithBalance устанавливает баланс аккаунта
+// WithBalance sets the account balance
 func (f *AccountFixture) WithBalance(balance decimal.Decimal) *AccountFixture {
 	f.account.Balance = balance
 	return f
 }
 
-// WithCurrency устанавливает валюту аккаунта
+// WithCurrency sets the account currency
 func (f *AccountFixture) WithCurrency(currency string) *AccountFixture {
 	f.account.Currency = currency
 	return f
 }
 
-// WithStatus устанавливает статус аккаунта
+// WithStatus sets the account status
 func (f *AccountFixture) WithStatus(status entity.AccountStatus) *AccountFixture {
 	f.account.Status = status
 	return f
 }
 
-// WithCreatedAt устанавливает время создания аккаунта
+// WithCreatedAt sets the account creation time
 func (f *AccountFixture) WithCreatedAt(createdAt time.Time) *AccountFixture {
 	f.account.CreatedAt = createdAt
 	return f
 }
 
-// WithUpdatedAt устанавливает время обновления аккаунта
+// WithUpdatedAt sets the account update time
 func (f *AccountFixture) WithUpdatedAt(updatedAt time.Time) *AccountFixture {
 	f.account.UpdatedAt = updatedAt
 	return f
 }
 
-// Build возвращает готовый объект аккаунта
+// Build returns the prepared account object
 func (f *AccountFixture) Build() *entity.Account {
 	return f.account
 }
 
-// Предопределенные аккаунты для тестов
+// Predefined accounts for tests
 var PredefinedAccounts = struct {
 	Active               func(userID string) *entity.Account
 	Inactive             func(userID string) *entity.Account
@@ -95,7 +95,7 @@ var PredefinedAccounts = struct {
 	ActiveWithCash5000   func(userID string, id uuid.UUID) *entity.Account
 	InactiveWithCash1000 func(userID string, id uuid.UUID) *entity.Account
 }{
-	// Активный аккаунт
+	// Active account
 	Active: func(userID string) *entity.Account {
 		return NewAccount().
 			WithUserID(userID).
@@ -103,7 +103,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Неактивный аккаунт
+	// Inactive account
 	Inactive: func(userID string) *entity.Account {
 		return NewAccount().
 			WithUserID(userID).
@@ -111,7 +111,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Заблокированный аккаунт
+	// Blocked account
 	Blocked: func(userID string) *entity.Account {
 		return NewAccount().
 			WithUserID(userID).
@@ -119,7 +119,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Аккаунт с указанным балансом в USD
+	// Account with specified balance in USD
 	WithBalanceUSD: func(userID string, balance decimal.Decimal) *entity.Account {
 		return NewAccount().
 			WithUserID(userID).
@@ -129,7 +129,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Аккаунт с указанным балансом в EUR
+	// Account with specified balance in EUR
 	WithBalanceEUR: func(userID string, balance decimal.Decimal) *entity.Account {
 		return NewAccount().
 			WithUserID(userID).
@@ -139,7 +139,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Активный аккаунт с балансом 1000 USD и указанным ID
+	// Active account with 1000 USD balance and specified ID
 	ActiveWithCash1000: func(userID string, id uuid.UUID) *entity.Account {
 		return NewAccount().
 			WithID(id).
@@ -150,7 +150,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Активный аккаунт с балансом 5000 USD и указанным ID
+	// Active account with 5000 USD balance and specified ID
 	ActiveWithCash5000: func(userID string, id uuid.UUID) *entity.Account {
 		return NewAccount().
 			WithID(id).
@@ -161,7 +161,7 @@ var PredefinedAccounts = struct {
 			Build()
 	},
 
-	// Неактивный аккаунт с балансом 1000 USD и указанным ID
+	// Inactive account with 1000 USD balance and specified ID
 	InactiveWithCash1000: func(userID string, id uuid.UUID) *entity.Account {
 		return NewAccount().
 			WithID(id).
