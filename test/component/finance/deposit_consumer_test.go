@@ -131,19 +131,15 @@ func (s *DepositConsumerSuite) createTestData() *TestData {
 	// Initialize context
 	ctx := helpers.TestContext()
 
-	// Создаем уникальный префикс для всех ID в этом тесте
-	uniquePrefix := time.Now().UnixNano()
-
 	// Generate IDs for test with additional uniqueness
-	userID := fmt.Sprintf("user-%d-%s", uniquePrefix, uuid.NewString())
-	extAccountID := fmt.Sprintf("ext-account-%d-%s", uniquePrefix, uuid.NewString())
-	depositExtID := fmt.Sprintf("ext-deposit-%d-%s", uniquePrefix, uuid.NewString())
+	idempotencyKey := uuid.NewString()
+	userID := uuid.NewString()
+	extAccountID := uuid.NewString()
+	depositExtID := uuid.NewString()
+
 	currency := "USD"
 	amount := decimal.NewFromInt(100)
 	newBalance := decimal.NewFromInt(100)
-
-	// Создаем уникальный ключ идемпотентности для этого конкретного теста
-	idempotencyKey := fmt.Sprintf("idempotency-%d-%s", uniquePrefix, uuid.NewString())
 
 	// Create mocks
 	depositProducerMock := &produsersgen.DepositProducerIMock{
