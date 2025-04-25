@@ -371,14 +371,15 @@ func newDepositFromEvent(accountID uuid.UUID, event *DepositEventData) *entity.D
 	now := time.Now()
 
 	return &entity.Deposit{
-		ID:        uuid.New(),
-		AccountID: accountID,
-		Amount:    event.Amount,
-		Currency:  event.Currency,
-		Status:    event.Status,
-		ExtID:     event.ExtID,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:             uuid.New(),
+		AccountID:      accountID,
+		Amount:         event.Amount,
+		Currency:       event.Currency,
+		Status:         event.Status,
+		ExtID:          event.ExtID,
+		IdempotencyKey: event.IdempotencyKey,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 }
 

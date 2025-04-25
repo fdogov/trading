@@ -37,6 +37,8 @@ type DBSuite struct {
 
 	// Stores
 	AccountStore store.AccountStore
+	DepositStore store.DepositStore
+	EventStore   store.EventStore
 }
 
 // SetupSuite initializes the test environment with a database
@@ -81,7 +83,6 @@ func (s *DBSuite) SetupSuite() {
 // SetupTest prepares the test environment before each test
 func (s *DBSuite) SetupTest() {
 	// Clean tables before each test
-	s.cleanupTables()
 }
 
 // TearDownTest cleans resources after each test
@@ -456,6 +457,8 @@ func (s *DBSuite) initRepositories() {
 	// Initialize repositories with real database
 	// Here real repositories are connected, not mocks
 	s.AccountStore = postgres.NewAccountStore(s.DBHandler)
+	s.DepositStore = postgres.NewDepositStore(s.DBHandler)
+	s.EventStore = postgres.NewEventStore(s.DBHandler)
 }
 
 // cleanupTables cleans tables before each test
