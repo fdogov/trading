@@ -55,6 +55,11 @@ func NewApp(
 		return nil, fmt.Errorf("failed to create partner proxy finance client: %w", err)
 	}
 
+	partnerProxyAccountClient, err := dependency.NewPartnerProxyAccountClient(cfg.Dependencies.PartnerProxy)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create partner proxy account client: %w", err)
+	}
+
 	// Create Kafka Producer
 	kafkaProducer, err := kafka.NewProducer(cfg.Kafka.Brokers, logger.Named("kafka-producer"))
 	if err != nil {
@@ -77,6 +82,7 @@ func NewApp(
 		eventStore,
 		depositProducer,
 		dbTransactor,
+		partnerProxyAccountClient,
 		logger.Named("kafka-consumer"),
 	)
 

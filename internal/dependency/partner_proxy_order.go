@@ -15,7 +15,7 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-//go:generate mockgen -destination=../mocks/mock_partner_proxy_order_client.go -package=mocks github.com/fdogov/trading/internal/dependency PartnerProxyOrderClient
+//go:generate moq -rm -out gen/partner_proxy_order_client_mock.go -pkg dependencygen -fmt goimports . PartnerProxyOrderClient
 
 // PartnerProxyOrderClient represents an interface for interacting with the PartnerProxy order service
 type PartnerProxyOrderClient interface {

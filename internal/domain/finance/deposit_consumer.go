@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/fdogov/trading/internal/dependency"
 	"time"
 
 	"github.com/fdogov/trading/internal/producers"
@@ -33,11 +34,11 @@ type DepositEventData struct {
 
 // DepositConsumer processes deposit events from Kafka
 type DepositConsumer struct {
-	depositStore    store.DepositStore
-	accountStore    store.AccountStore
-	dbTransactor    store.DBTransactor
-	eventStore      store.EventStore
-	depositProducer producers.DepositProducerI
+	depositStore              store.DepositStore
+	accountStore              store.AccountStore
+	eventStore                store.EventStore
+	depositProducer           producers.DepositProducerI
+	partnerProxyAccountClient dependency.PartnerProxyAccountClient
 }
 
 // NewDepositConsumer creates a new instance of DepositConsumer
@@ -46,14 +47,14 @@ func NewDepositConsumer(
 	accountStore store.AccountStore,
 	eventStore store.EventStore,
 	depositProducer producers.DepositProducerI,
-	dbTransactor store.DBTransactor,
+	partnerProxyAccountClient dependency.PartnerProxyAccountClient,
 ) *DepositConsumer {
 	return &DepositConsumer{
-		depositStore:    depositStore,
-		accountStore:    accountStore,
-		eventStore:      eventStore,
-		depositProducer: depositProducer,
-		dbTransactor:    dbTransactor,
+		depositStore:              depositStore,
+		accountStore:              accountStore,
+		eventStore:                eventStore,
+		depositProducer:           depositProducer,
+		partnerProxyAccountClient: partnerProxyAccountClient,
 	}
 }
 
@@ -88,6 +89,11 @@ func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) er
 	deposit, err := c.handleDeposit(ctx, depositEvent)
 	if err != nil {
 		return fmt.Errorf("failed to handle deposit: %w", err)
+	}
+
+	// Updating account balance if deposit is completed
+	if err = c.updateAccountBalance(ctx, depositEvent, deposit); err != nil {
+		return fmt.Errorf("failed to update account balance: %w", err)
 	}
 
 	// Sending deposit notification
@@ -294,37 +300,16 @@ func (c *DepositConsumer) createNewDeposit(
 	// Create deposit entity
 	deposit := newDepositFromEvent(account.ID, event)
 
-	// Use transaction for atomic deposit creation and balance update
-	err = c.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Create deposit record
-		if err = c.depositStore.Create(txCtx, deposit); err != nil {
-			return fmt.Errorf("failed to create deposit: %w", err)
-		}
-
-		logger.Info(txCtx, "Created new deposit",
-			zap.String("id", deposit.ID.String()),
-			zap.String("account_id", deposit.AccountID.String()),
-			zap.String("amount", deposit.Amount.String()),
-			zap.String("currency", deposit.Currency),
-			zap.String("status", string(deposit.Status)))
-
-		// Update account balance if deposit is completed
-		if deposit.IsCompleted() {
-			if err = c.updateAccountBalance(txCtx, event, deposit); err != nil {
-				return fmt.Errorf("failed to update account balance: %w", err)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		logger.Error(ctx, "Failed to process new deposit",
-			zap.String("ext_id", event.ExtID),
-			zap.String("account_id", account.ID.String()),
-			zap.Error(err))
-		return nil, err
+	if err = c.depositStore.Create(ctx, deposit); err != nil {
+		return nil, fmt.Errorf("failed to create deposit: %w", err)
 	}
+
+	logger.Info(ctx, "Created new deposit",
+		zap.String("id", deposit.ID.String()),
+		zap.String("account_id", deposit.AccountID.String()),
+		zap.String("amount", deposit.Amount.String()),
+		zap.String("currency", deposit.Currency),
+		zap.String("status", deposit.Status.String()))
 
 	return deposit, nil
 }
@@ -335,13 +320,6 @@ func (c *DepositConsumer) updateExistingDeposit(
 	deposit *entity.Deposit,
 	event *DepositEventData,
 ) (*entity.Deposit, error) {
-	// Update account balance only if the deposit transitions to completed state
-	if event.Status == entity.DepositStatusCompleted && !deposit.IsCompleted() {
-		if err := c.updateAccountBalance(ctx, event, deposit); err != nil {
-			return nil, fmt.Errorf("failed to update account balance: %w", err)
-		}
-	}
-
 	// Update deposit status
 	prevStatus := deposit.Status
 	if err := c.depositStore.UpdateStatus(ctx, deposit.ID, event.Status); err != nil {
@@ -366,8 +344,17 @@ func (c *DepositConsumer) updateAccountBalance(
 	event *DepositEventData,
 	deposit *entity.Deposit,
 ) error {
+	if !deposit.IsCompleted() {
+		// No balance update needed for non-completed deposits
+		return nil
+	}
+	newBalance, err := c.partnerProxyAccountClient.GetAccountBalance(ctx, event.ExtAccountID)
+	if err != nil {
+		return fmt.Errorf("failed to get account balance: %w", err)
+	}
+
 	// Update balance with exact new value
-	if err := c.accountStore.UpdateBalance(ctx, deposit.AccountID, event.NewBalance); err != nil {
+	if err = c.accountStore.UpdateBalance(ctx, deposit.AccountID, *newBalance); err != nil {
 		return fmt.Errorf("failed to update balance for account %s: %w", deposit.AccountID, err)
 	}
 

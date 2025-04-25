@@ -12,7 +12,7 @@ import (
 	"github.com/fdogov/trading/internal/entity"
 )
 
-//go:generate mockgen -destination=../mocks/mock_partner_proxy_finance_client.go -package=mocks github.com/fdogov/trading/internal/dependency PartnerProxyFinanceClient
+//go:generate moq -rm -out gen/partner_proxy_finance_client_mock.go -pkg dependencygen -fmt goimports . PartnerProxyFinanceClient
 
 // PartnerProxyFinanceClient represents an interface for interacting with the PartnerProxy finance service
 type PartnerProxyFinanceClient interface {

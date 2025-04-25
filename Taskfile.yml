@@ -74,21 +74,6 @@ tasks:
     cmds:
       - KAFKA_BROKER=localhost:9092 go run ./cmd/trading/main.go
 
-  kafka:send:account:
-    desc: Send test account event to Redpanda
-    cmds:
-      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=account
-
-  kafka:send:deposit:
-    desc: Send test deposit event to Redpanda
-    cmds:
-      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=deposit
-
-  kafka:send:order:
-    desc: Send test order event to Redpanda
-    cmds:
-      - go run tools/kafka-producer/main.go -broker=localhost:9092 -type=order
-
   clean:
     desc: Clean containers
     cmds:

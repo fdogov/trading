@@ -15,6 +15,8 @@ import (
 	"github.com/fdogov/trading/internal/logger"
 )
 
+//go:generate moq -rm -out gen/deposit_producer_mock.go -pkg produsersgen -fmt goimports . DepositProducerI
+
 // KafkaProducer interface for sending messages to Kafka
 type KafkaProducer interface {
 	// Produce sends a message to the specified topic
