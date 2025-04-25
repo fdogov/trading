@@ -125,3 +125,21 @@ func (s *DepositStore) UpdateStatus(ctx context.Context, id uuid.UUID, status en
 
 	return nil
 }
+
+// UpdateExternalData обновляет внешний ID и статус депозита
+func (s *DepositStore) UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error {
+	const query = `
+		UPDATE deposits SET
+			ext_id = $1,
+			status = $2,
+			updated_at = NOW()
+		WHERE id = $3;
+	`
+
+	_, err := s.db.Primary(ctx).ExecContext(ctx, query, extID, status, id)
+	if err != nil {
+		return fmt.Errorf("failed to update deposit external data: %w", err)
+	}
+
+	return nil
+}

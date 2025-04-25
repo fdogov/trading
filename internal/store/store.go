@@ -62,6 +62,9 @@ type DepositStore interface {
 
 	// UpdateStatus обновляет статус депозита
 	UpdateStatus(ctx context.Context, id uuid.UUID, status entity.DepositStatus) error
+
+	// UpdateExternalData обновляет внешний ID и статус депозита
+	UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error
 }
 
 // DBTransactor определяет интерфейс для работы с транзакциями

@@ -3,11 +3,7 @@ package dependency
 import (
 	"context"
 	"fmt"
-	"time"
-
 	_type "github.com/fdogov/contracts/gen/go/google/type"
-	"github.com/google/uuid"
-	"github.com/shopspring/decimal"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	partnerproxyv1 "github.com/fdogov/contracts/gen/go/backend/partnerproxy/v1"
@@ -19,7 +15,7 @@ import (
 
 // PartnerProxyFinanceClient представляет интерфейс для взаимодействия с финансовым сервисом PartnerProxy
 type PartnerProxyFinanceClient interface {
-	CreateDeposit(ctx context.Context, extAccountID string, amount decimal.Decimal, currency string) (string, entity.DepositStatus, error)
+	CreateDeposit(ctx context.Context, deposit *entity.Deposit, extAccountID string) (*DepositResponse, error)
 }
 
 // partnerProxyFinanceClient реализует интерфейс PartnerProxyFinanceClient
@@ -42,25 +38,24 @@ func NewPartnerProxyFinanceClient(cfg config.Dependency) (PartnerProxyFinanceCli
 // CreateDeposit создает депозит через PartnerProxyFinanceClient
 func (c *partnerProxyFinanceClient) CreateDeposit(
 	ctx context.Context,
+	deposit *entity.Deposit,
 	extAccountID string,
-	amount decimal.Decimal,
-	currency string,
-) (string, entity.DepositStatus, error) {
+) (*DepositResponse, error) {
 	// Создаем прото-объект для decimal
 	amountDecimal := &_type.Decimal{
-		Value: amount.String(),
+		Value: deposit.Amount.String(),
 	}
 
 	// Отправляем запрос
 	resp, err := c.client.CreateDeposit(ctx, &partnerproxyv1.CreateDepositRequest{
-		IdempotencyKey: uuid.New().String(),
+		IdempotencyKey: deposit.IdempotencyKey,
 		ExtAccountId:   extAccountID,
 		Amount:         amountDecimal,
-		Currency:       currency,
-		CreatedAt:      timestamppb.New(time.Now()),
+		Currency:       deposit.Currency,
+		CreatedAt:      timestamppb.New(deposit.CreatedAt),
 	})
 	if err != nil {
-		return "", entity.DepositStatusFailed, fmt.Errorf("failed to create deposit: %w", err)
+		return nil, fmt.Errorf("failed to create deposit: %w", err)
 	}
 
 	// Определяем статус депозита
@@ -76,5 +71,14 @@ func (c *partnerProxyFinanceClient) CreateDeposit(
 		status = entity.DepositStatusPending
 	}
 
-	return resp.DepositId, status, nil
+	return &DepositResponse{
+		ExtID:  resp.DepositId,
+		Status: status,
+	}, nil
+}
+
+// DepositResponse представляет ответ от партнерского сервиса по депозиту
+type DepositResponse struct {
+	ExtID  string
+	Status entity.DepositStatus
 }

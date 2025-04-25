@@ -76,21 +76,24 @@ func (h *depositFundsHandler) Handle(ctx context.Context, req *tradingv1.Deposit
 	}
 
 	// Process deposit with partner service
-	extDepositID, status, err := h.partnerProxyFinanceClient.CreateDeposit(
+	response, err := h.partnerProxyFinanceClient.CreateDeposit(
 		ctx,
+		deposit,
 		account.ExtID,
-		parsedReq.amount,
-		req.Currency,
 	)
 
-	// Update deposit with external data
-	deposit.ExtID = extDepositID
-	deposit.Status = status
-	deposit.UpdatedAt = time.Now()
-
-	if err := h.depositStore.Update(ctx, deposit); err != nil {
-		return nil, fmt.Errorf("failed to update deposit with external ID: %w", err)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create deposit with partner service: %w", err)
 	}
+
+	// Update deposit with external data
+	if err := h.depositStore.UpdateExternalData(ctx, deposit.ID, response.ExtID, response.Status); err != nil {
+		return nil, fmt.Errorf("failed to update deposit with external data: %w", err)
+	}
+
+	// Обновляем локальный объект deposit для корректного возврата статуса
+	deposit.ExtID = response.ExtID
+	deposit.Status = response.Status
 
 	return &tradingv1.DepositFundsResponse{
 		AccountId: req.AccountId,
