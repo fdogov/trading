@@ -5,18 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/fdogov/trading/internal/dependency"
 	"time"
 
-	"github.com/fdogov/trading/internal/producers"
-
+	partnerconsumerkafkav1 "github.com/fdogov/contracts/gen/go/backend/partnerconsumer/kafka/v1"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 	"go.uber.org/zap"
 
-	partnerconsumerkafkav1 "github.com/fdogov/contracts/gen/go/backend/partnerconsumer/kafka/v1"
+	"github.com/fdogov/trading/internal/dependency"
 	"github.com/fdogov/trading/internal/entity"
 	"github.com/fdogov/trading/internal/logger"
+	"github.com/fdogov/trading/internal/producers"
 	"github.com/fdogov/trading/internal/store"
 )
 
