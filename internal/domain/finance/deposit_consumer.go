@@ -55,6 +55,8 @@ func (c *DepositConsumer) ProcessMessage(ctx context.Context, message []byte) er
 
 	// Add trace ID from event's external ID
 	ctx = logger.ContextWithTraceID(ctx, event.ExtId)
+	// Сохраняем событие в контексте для доступа к новому балансу
+	ctx = context.WithValue(ctx, "depositEvent", &event)
 
 	logger.Info(ctx, "Received deposit event",
 		zap.String("ext_id", event.ExtId),
@@ -134,7 +136,7 @@ func (c *DepositConsumer) handleNewDeposit(ctx context.Context, event *partnerco
 
 		// If deposit is completed, update account balance
 		if deposit.IsCompleted() {
-			if err = c.updateAccountBalance(txCtx, deposit); err != nil {
+			if err = c.updateAccountBalance(txCtx, event, deposit); err != nil {
 				return fmt.Errorf("failed to update account balance: %w", err)
 			}
 		}
@@ -174,57 +176,45 @@ func (c *DepositConsumer) handleExistingDeposit(ctx context.Context, deposit *en
 	// Convert status from Kafka event
 	status := convertKafkaDepositStatus(event.Status)
 
-	// If status hasn't changed, do nothing
-	if deposit.Status == status {
-		logger.Info(ctx, "Deposit status hasn't changed, skipping update",
-			zap.String("id", deposit.ID.String()),
-			zap.String("status", string(status)))
-		return nil
+	// If deposit becomes completed, update account balance
+	if status == entity.DepositStatusCompleted && !deposit.IsCompleted() {
+		if err := c.updateAccountBalance(ctx, event, deposit); err != nil {
+			return fmt.Errorf("failed to update account balance: %w", err)
+		}
 	}
 
-	// Update status and account balance if needed
-	err := c.dbTransactor.Exec(ctx, func(txCtx context.Context) error {
-		// Update deposit status
-		if err := c.depositStore.UpdateStatus(txCtx, deposit.ID, status); err != nil {
-			return fmt.Errorf("failed to update deposit status: %w", err)
-		}
-
-		logger.Info(txCtx, "Updated deposit status",
-			zap.String("id", deposit.ID.String()),
-			zap.String("old_status", string(deposit.Status)),
-			zap.String("new_status", string(status)))
-
-		// If deposit becomes completed, update account balance
-		if status == entity.DepositStatusCompleted && !deposit.IsCompleted() {
-			deposit.Status = status // Update status locally
-			if err := c.updateAccountBalance(txCtx, deposit); err != nil {
-				return fmt.Errorf("failed to update account balance: %w", err)
-			}
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		logger.Error(ctx, "Failed to update deposit",
-			zap.String("id", deposit.ID.String()),
-			zap.String("ext_id", deposit.ExtID),
-			zap.Error(err))
-		return err
+	// Update deposit status
+	if err := c.depositStore.UpdateStatus(ctx, deposit.ID, status); err != nil {
+		return fmt.Errorf("failed to update deposit status: %w", err)
 	}
 
+	logger.Info(ctx, "Updated deposit status",
+		zap.String("id", deposit.ID.String()),
+		zap.String("old_status", string(deposit.Status)),
+		zap.String("new_status", string(status)))
+
+	deposit.Status = status // Update status locally
 	return nil
 }
 
 // updateAccountBalance updates the account balance when a deposit is completed
-func (c *DepositConsumer) updateAccountBalance(ctx context.Context, deposit *entity.Deposit) error {
-	err := c.accountStore.UpdateBalance(ctx, deposit.AccountID, deposit.Amount.String())
+func (c *DepositConsumer) updateAccountBalance(ctx context.Context, event *partnerconsumerkafkav1.DepositEvent, deposit *entity.Deposit) error {
+	// Вычисляем разницу для установки точного баланса
+	newBalance, err := decimal.NewFromString(event.Amount.Value)
 	if err != nil {
-		return fmt.Errorf("failed to update account balance for account %s: %w", deposit.AccountID, err)
+		return fmt.Errorf("failed to parse amount: %w", err)
 	}
 
-	logger.Info(ctx, "Updated account balance",
+	// Обновляем баланс с вычисленной разницей
+	err = c.accountStore.UpdateBalance(ctx, deposit.AccountID, newBalance)
+	if err != nil {
+		return fmt.Errorf("failed to set exact balance for account %s: %w", deposit.AccountID, err)
+	}
+
+	logger.Info(ctx, "Set exact account balance",
 		zap.String("account_id", deposit.AccountID.String()),
+		// zap.String("old_balance", account.Balance.String()),
+		zap.String("new_balance", newBalance.String()),
 		zap.String("added_amount", deposit.Amount.String()),
 		zap.String("currency", deposit.Currency))
 

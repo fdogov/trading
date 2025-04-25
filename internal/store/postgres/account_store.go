@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/shopspring/decimal"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -107,10 +108,10 @@ func (s *AccountStore) Update(ctx context.Context, account *entity.Account) erro
 }
 
 // UpdateBalance обновляет баланс аккаунта
-func (s *AccountStore) UpdateBalance(ctx context.Context, id uuid.UUID, amount string) error {
+func (s *AccountStore) UpdateBalance(ctx context.Context, id uuid.UUID, amount decimal.Decimal) error {
 	const query = `
 		UPDATE accounts SET
-			balance = balance + CAST($1 AS DECIMAL(18, 6)),
+			balance = $1,
 			updated_at = NOW()
 		WHERE id = $2;
 	`

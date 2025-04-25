@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"github.com/shopspring/decimal"
 
 	"github.com/fdogov/trading/internal/entity"
 	"github.com/google/uuid"
@@ -22,7 +23,7 @@ type AccountStore interface {
 	GetByUserID(ctx context.Context, userID string) ([]*entity.Account, error)
 
 	// UpdateBalance обновляет баланс аккаунта
-	UpdateBalance(ctx context.Context, id uuid.UUID, amount string) error
+	UpdateBalance(ctx context.Context, id uuid.UUID, amount decimal.Decimal) error
 }
 
 // OrderStore определяет интерфейс для работы с хранилищем заказов
