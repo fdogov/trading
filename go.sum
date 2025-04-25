@@ -9,12 +9,8 @@ github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 h1:Oy0F4A
 github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3/go.mod h1:YvSRo5mw33fLEx1+DlK6L2VV43tJt5Eyel9n9XBcR+0=
 github.com/eapache/queue v1.1.0 h1:YOEu7KNc61ntiQlcEeUIoDTJ2o8mQznoNvUhiigpIqc=
 github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFPTqq+I=
-github.com/fdogov/contracts v0.0.0-20250423144957-ed78047235cd h1:LmyAvOE0li3JX2VlEKgTJ0EVZUqs7BN0Y7uRrxSiwsI=
-github.com/fdogov/contracts v0.0.0-20250423144957-ed78047235cd/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
-github.com/fdogov/contracts v0.0.0-20250425075959-b3290aa524e8 h1:toVtdfcLVoqBRBvKjHoTvQ7RULFPAxDw31feZoppCyk=
-github.com/fdogov/contracts v0.0.0-20250425075959-b3290aa524e8/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
-github.com/fdogov/contracts v0.0.0-20250425123130-e891fb4fafa2 h1:i4YjZpqHAH5Q9M76UPFIiQxSXZ6QuITgfjsSG/TamHo=
-github.com/fdogov/contracts v0.0.0-20250425123130-e891fb4fafa2/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
+github.com/fdogov/contracts v0.0.0-20250425141724-3e796822ae93 h1:uQnmHdLztAkDZVb2Y2uVJzY77UkfSaDhj3ZvcByC4Eo=
+github.com/fdogov/contracts v0.0.0-20250425141724-3e796822ae93/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=
@@ -85,8 +81,6 @@ github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf
 github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
-go.uber.org/multierr v1.10.0 h1:S0h4aNzvfcFsC3dRF1jLoaov7oRaKqRGC/pUEJ2yvPQ=
-go.uber.org/multierr v1.10.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
 go.uber.org/multierr v1.11.0 h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=
 go.uber.org/multierr v1.11.0/go.mod h1:20+QtiLqy0Nd6FdQB9TLXag12DsQkrbs3htMFfDN80Y=
 go.uber.org/zap v1.27.0 h1:aJMhYGrd5QSmlpLMr2MftRKl7t8J8PTZPA732ud/XR8=
