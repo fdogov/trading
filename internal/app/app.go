@@ -67,7 +67,8 @@ func NewApp(
 	}
 
 	// Create DepositProducer
-	depositProducer := producers.NewDepositProducer(kafkaProducer, cfg.Kafka.DepositFeedTopic)
+	depositProducer := producers.NewDepositProducer(kafkaProducer, cfg.Kafka.FeedTopic)
+	orderProducer := producers.NewOrderProducer(kafkaProducer, cfg.Kafka.FeedTopic)
 
 	// Create gRPC servers
 	accountsServer := accounts.NewServer(accountStore)
@@ -81,7 +82,7 @@ func NewApp(
 		orderStore,
 		eventStore,
 		depositProducer,
-		dbTransactor,
+		orderProducer,
 		partnerProxyAccountClient,
 		logger.Named("kafka-consumer"),
 	)

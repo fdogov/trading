@@ -37,6 +37,9 @@ type OrderStore interface {
 
 	// GetByExtID gets an order by external ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Order, error)
+	
+	// GetByIdempotencyKey gets an order by idempotency key
+	GetByIdempotencyKey(ctx context.Context, key string) (*entity.Order, error)
 
 	// Update updates an order
 	Update(ctx context.Context, order *entity.Order) error
@@ -67,6 +70,9 @@ type DepositStore interface {
 
 	// UpdateExternalData updates the external ID and status of a deposit
 	UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error
+	
+	// GetByAccountID returns all deposits for a specific account
+	GetByAccountID(ctx context.Context, accountID uuid.UUID) ([]*entity.Deposit, error)
 }
 
 // EventStore defines the interface for working with event storage

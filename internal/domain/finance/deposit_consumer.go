@@ -370,13 +370,16 @@ func (c *DepositConsumer) updateAccountBalance(
 func newDepositFromEvent(accountID uuid.UUID, event *DepositEventData) *entity.Deposit {
 	now := time.Now()
 
+	// Создаем копию строки для корректного присваивания указателю
+	extID := event.ExtID
+
 	return &entity.Deposit{
 		ID:             uuid.New(),
 		AccountID:      accountID,
 		Amount:         event.Amount,
 		Currency:       event.Currency,
 		Status:         event.Status,
-		ExtID:          event.ExtID,
+		ExtID:          &extID,
 		IdempotencyKey: event.IdempotencyKey,
 		CreatedAt:      now,
 		UpdatedAt:      now,

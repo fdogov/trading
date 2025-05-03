@@ -16,6 +16,7 @@ kafka:
   account_topic: "accounts-test"
   deposit_event_topic: "deposits-test"
   order_event_topic: "orders-test"
+  feed_topic: "feed-test"
 
 dependencies:
   partnerProxy:

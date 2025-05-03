@@ -143,3 +143,20 @@ func (s *DepositStore) UpdateExternalData(ctx context.Context, id uuid.UUID, ext
 
 	return nil
 }
+
+// GetByAccountID returns all deposits for a specific account
+func (s *DepositStore) GetByAccountID(ctx context.Context, accountID uuid.UUID) ([]*entity.Deposit, error) {
+	const query = `SELECT * FROM deposits WHERE account_id = $1 ORDER BY created_at DESC;`
+
+	var deposits []*entity.Deposit
+	err := sqlx.SelectContext(ctx, s.db.Replica(), &deposits, query, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get deposits by account ID: %w", err)
+	}
+
+	if len(deposits) == 0 {
+		return []*entity.Deposit{}, nil
+	}
+
+	return deposits, nil
+}

@@ -24,7 +24,7 @@ func NewDeposit() *DepositFixture {
 			Amount:         decimal.NewFromInt(100),
 			Currency:       "USD",
 			Status:         entity.DepositStatusPending,
-			ExtID:          uuid.NewString(),
+			ExtID:          nil, // ExtID изначально nil, будет присвоен позже
 			IdempotencyKey: uuid.NewString(),
 			CreatedAt:      now,
 			UpdatedAt:      now,
@@ -64,7 +64,9 @@ func (f *DepositFixture) WithStatus(status entity.DepositStatus) *DepositFixture
 
 // WithExtID sets the external ID of the deposit
 func (f *DepositFixture) WithExtID(extID string) *DepositFixture {
-	f.deposit.ExtID = extID
+	// Создаем копию строки для корректного присвоения указателю
+	extIDCopy := extID
+	f.deposit.ExtID = &extIDCopy
 	return f
 }
 

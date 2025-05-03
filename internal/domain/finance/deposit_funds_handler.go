@@ -230,7 +230,7 @@ func (h *DepositFundsHandler) processDepositWithPartner(
 	}
 
 	// Update deposit with external data
-	if err := h.depositStore.UpdateExternalData(ctx, deposit.ID, response.ExtID, response.Status); err != nil {
+	if err = h.depositStore.UpdateExternalData(ctx, deposit.ID, response.ExtID, response.Status); err != nil {
 		logger.Error(ctx, "Failed to update deposit with external data",
 			zap.String("deposit_id", deposit.ID.String()),
 			zap.Error(err))
@@ -238,7 +238,9 @@ func (h *DepositFundsHandler) processDepositWithPartner(
 	}
 
 	// Update local deposit object to return correct status
-	deposit.ExtID = response.ExtID
+	// Создаем копию строки для корректного присваивания указателю
+	extID := response.ExtID
+	deposit.ExtID = &extID
 	deposit.Status = response.Status
 
 	return deposit, nil
@@ -253,6 +255,7 @@ func createNewDeposit(accountID uuid.UUID, amount decimal.Decimal, currency stri
 		Amount:         amount,
 		Currency:       currency,
 		Status:         entity.DepositStatusPending,
+		ExtID:          nil, // ExtID изначально nil, пока не получим внешний ID
 		IdempotencyKey: idempotencyKey,
 		CreatedAt:      now,
 		UpdatedAt:      now,

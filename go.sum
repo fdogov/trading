@@ -9,14 +9,8 @@ github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 h1:Oy0F4A
 github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3/go.mod h1:YvSRo5mw33fLEx1+DlK6L2VV43tJt5Eyel9n9XBcR+0=
 github.com/eapache/queue v1.1.0 h1:YOEu7KNc61ntiQlcEeUIoDTJ2o8mQznoNvUhiigpIqc=
 github.com/eapache/queue v1.1.0/go.mod h1:6eCeP0CKFpHLu8blIFXhExK/dRa7WDZfr6jVFPTqq+I=
-github.com/fdogov/contracts v0.0.0-20250425141724-3e796822ae93 h1:uQnmHdLztAkDZVb2Y2uVJzY77UkfSaDhj3ZvcByC4Eo=
-github.com/fdogov/contracts v0.0.0-20250425141724-3e796822ae93/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
-github.com/fdogov/contracts v0.0.0-20250425142305-a0fb31ee976b h1:sReSvBA+i5X1do1TZWsvAqT5ItVyTJ2nBrCCaS7Wv3c=
-github.com/fdogov/contracts v0.0.0-20250425142305-a0fb31ee976b/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
-github.com/fdogov/contracts v0.0.0-20250425150148-ea3f1e2655b5 h1:TS19vgW6ijZ7GinE/FjxCTbeWJGkM2bWkfUh6MBkUiM=
-github.com/fdogov/contracts v0.0.0-20250425150148-ea3f1e2655b5/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
-github.com/fdogov/contracts v0.0.0-20250425174637-46e58aede357 h1:KGwRc2uhqxhv3YZXYy/rV+wwuhrYAvgbMj0l8OITekc=
-github.com/fdogov/contracts v0.0.0-20250425174637-46e58aede357/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
+github.com/fdogov/contracts v0.0.0-20250502180329-ab5fcc5b33da h1:qupjfzIanEQiF5PDLpVqGkUrw47+i39IF12Bk87Zl7k=
+github.com/fdogov/contracts v0.0.0-20250502180329-ab5fcc5b33da/go.mod h1:0fnxlxBGIRYDDNxje9EygGUt/fPp2gQr+qWJj4K6310=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/fortytw2/leaktest v1.3.0/go.mod h1:jDsjWgpAGjm2CA7WthBh/CdZYEPF31XHquHwclZch5g=
 github.com/go-sql-driver/mysql v1.6.0 h1:BCTh4TKNUYmOmMUcQ3IipzF5prigylS7XXjEkfCHuOE=

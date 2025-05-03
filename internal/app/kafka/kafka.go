@@ -3,16 +3,16 @@ package kafka
 import (
 	"context"
 	"fmt"
-	"github.com/fdogov/trading/internal/dependency"
 	"sync"
 
+	"go.uber.org/zap"
+
+	"github.com/fdogov/trading/internal/config"
+	"github.com/fdogov/trading/internal/dependency"
 	"github.com/fdogov/trading/internal/domain/accounts"
 	"github.com/fdogov/trading/internal/domain/finance"
 	"github.com/fdogov/trading/internal/domain/orders"
 	"github.com/fdogov/trading/internal/producers"
-	"go.uber.org/zap"
-
-	"github.com/fdogov/trading/internal/config"
 	"github.com/fdogov/trading/internal/store"
 )
 
@@ -39,14 +39,14 @@ func NewKafkaConsumers(
 	orderStore store.OrderStore,
 	eventStore store.EventStore,
 	depositProducer *producers.DepositProducer,
-	dbTransactor store.DBTransactor,
+	orderProducer *producers.OrderProducer,
 	partnerProxyAccountClient dependency.PartnerProxyAccountClient,
 	logger *zap.Logger,
 ) *KafkaConsumers {
 	return &KafkaConsumers{
 		accountConsumer: accounts.NewAccountConsumer(accountStore, logger),
 		depositConsumer: finance.NewDepositConsumer(depositStore, accountStore, eventStore, depositProducer, partnerProxyAccountClient),
-		orderConsumer:   orders.NewOrderConsumer(orderStore, accountStore, dbTransactor),
+		orderConsumer:   orders.NewOrderConsumer(orderStore, accountStore, eventStore, orderProducer),
 		readers:         make([]*Reader, 0),
 		shutdownCh:      make(chan struct{}),
 		logger:          logger,

@@ -87,12 +87,14 @@ func (c *partnerProxyOrderClient) CreateOrder(
 	// Determine order status
 	var status entity.OrderStatus
 	switch resp.Status {
-	case "PENDING":
+	case partnerproxyv1.OrderStatus_ORDER_STATUS_PENDING:
 		status = entity.OrderStatusProcessing
-	case "COMPLETED":
+	case partnerproxyv1.OrderStatus_ORDER_STATUS_COMPLETED:
 		status = entity.OrderStatusCompleted
-	case "FAILED":
+	case partnerproxyv1.OrderStatus_ORDER_STATUS_FAILED:
 		status = entity.OrderStatusFailed
+	case partnerproxyv1.OrderStatus_ORDER_STATUS_CANCELLED:
+		status = entity.OrderStatusCancelled
 	default:
 		status = entity.OrderStatusNew
 	}

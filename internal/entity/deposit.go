@@ -14,7 +14,7 @@ type Deposit struct {
 	Amount         decimal.Decimal `db:"amount"`
 	Currency       string          `db:"currency"`
 	Status         DepositStatus   `db:"status"`
-	ExtID          string          `db:"ext_id"`
+	ExtID          *string         `db:"ext_id"`
 	IdempotencyKey string          `db:"idempotency_key"`
 	CreatedAt      time.Time       `db:"created_at"`
 	UpdatedAt      time.Time       `db:"updated_at"`

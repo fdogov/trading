@@ -72,6 +72,12 @@ type TestCase struct {
 	then  func(td *TestData, err error) // Then: checking results
 }
 
+// Constants for test data
+const (
+	DefaultCurrency  = "USD"
+	DefaultAmountInt = 100
+)
+
 // DepositConsumerSuite implements a set of tests for the deposit event handler
 type DepositConsumerSuite struct {
 	suite.DBSuite
@@ -82,9 +88,10 @@ func (s *DepositConsumerSuite) SetupSuite() {
 	s.DBSuite.SetupSuite()
 }
 
-// SetupTest чистит данные перед каждым тестом
+// SetupTest cleans up data before each test
 func (s *DepositConsumerSuite) SetupTest() {
-
+	// This method can be used to clean up database for each test
+	// Currently relying on separate test data creation
 }
 
 // createDepositEvent creates a deposit event for testing
@@ -137,9 +144,9 @@ func (s *DepositConsumerSuite) createTestData() *TestData {
 	extAccountID := uuid.NewString()
 	depositExtID := uuid.NewString()
 
-	currency := "USD"
-	amount := decimal.NewFromInt(100)
-	newBalance := decimal.NewFromInt(100)
+	currency := DefaultCurrency
+	amount := decimal.NewFromInt(DefaultAmountInt)
+	newBalance := decimal.NewFromInt(DefaultAmountInt)
 
 	// Create mocks
 	depositProducerMock := &produsersgen.DepositProducerIMock{
@@ -225,6 +232,16 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				require.NoError(td.t, err)
 				assert.True(td.t, decimal.NewFromInt(0).Equal(account.Balance))
 
+				// Verify deposit was created with pending status
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.NoError(td.t, err)
+				// Проверяем, что ExtID установлен и его значение совпадает с ожидаемым
+				assert.NotNil(td.t, deposit.ExtID, "Deposit external ID should be set")
+				assert.Equal(td.t, td.depositExtID, *deposit.ExtID, "Deposit external ID should match")
+				assert.Equal(td.t, entity.DepositStatusPending, deposit.Status, "Deposit should be in pending status")
+				assert.True(td.t, td.amount.Equal(deposit.Amount), "Deposit amount should match")
+				assert.Equal(td.t, td.currency, deposit.Currency, "Deposit currency should match")
+
 				// Verify deposit producer was not called (no notification for pending)
 				assert.Equal(td.t, 0, len(td.depositProducerMock.SendDepositEventCalls()))
 			},
@@ -244,7 +261,9 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 
 				// First create a pending deposit using fixture
 				deposit := fixtures.PredefinedDeposits.Pending(td.accountID)
-				deposit.ExtID = td.depositExtID
+				// Создаем копию строки для корректного присваивания указателю
+				extID := td.depositExtID
+				deposit.ExtID = &extID
 				deposit.Amount = td.amount
 				deposit.Currency = td.currency
 
@@ -266,7 +285,7 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 			when: func(td *TestData) error {
 				// Configure mock to return updated balance
 				td.partnerProxyAccountClientMock.GetAccountBalanceFunc = func(ctx context.Context, extAccountID string) (*decimal.Decimal, error) {
-					balance := decimal.NewFromInt(100)
+					balance := decimal.NewFromInt(DefaultAmountInt)
 					return &balance, nil
 				}
 				// Process the message
@@ -279,7 +298,14 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				// Verify account balance was updated
 				account, err := td.accountStore.GetByID(td.ctx, td.accountID)
 				require.NoError(td.t, err)
-				assert.True(td.t, decimal.NewFromInt(100).Equal(account.Balance))
+				assert.True(td.t, decimal.NewFromInt(DefaultAmountInt).Equal(account.Balance))
+
+				// Verify deposit status was updated to completed
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.NoError(td.t, err)
+				assert.Equal(td.t, entity.DepositStatusCompleted, deposit.Status, "Deposit should be updated to completed status")
+				assert.True(td.t, td.amount.Equal(deposit.Amount), "Deposit amount should remain unchanged")
+				assert.Equal(td.t, td.currency, deposit.Currency, "Deposit currency should remain unchanged")
 
 				// Verify deposit producer was called to send notification
 				require.Equal(td.t, 1, len(td.depositProducerMock.SendDepositEventCalls()))
@@ -331,11 +357,22 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				require.NoError(td.t, err)
 				assert.True(td.t, td.newBalance.Equal(account.Balance))
 
+				// Verify deposit was created with completed status
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.NoError(td.t, err)
+				// Проверяем, что ExtID установлен и его значение совпадает с ожидаемым
+				assert.NotNil(td.t, deposit.ExtID, "Deposit external ID should be set")
+				assert.Equal(td.t, td.depositExtID, *deposit.ExtID, "Deposit external ID should match")
+				assert.Equal(td.t, entity.DepositStatusCompleted, deposit.Status, "Deposit should be in completed status")
+				assert.True(td.t, td.amount.Equal(deposit.Amount), "Deposit amount should match")
+				assert.Equal(td.t, td.currency, deposit.Currency, "Deposit currency should match")
+
 				// Verify deposit producer was called to send notification
 				require.Equal(td.t, 1, len(td.depositProducerMock.SendDepositEventCalls()))
 				call := td.depositProducerMock.SendDepositEventCalls()[0]
 				assert.Equal(td.t, td.userID, call.UserID)
-				assert.True(td.t, decimal.NewFromInt(100).Equal(call.BalanceNew), "BalanceNew should be 100", call.BalanceNew)
+				assert.True(td.t, decimal.NewFromInt(DefaultAmountInt).Equal(call.BalanceNew),
+					fmt.Sprintf("BalanceNew should be %d", DefaultAmountInt), call.BalanceNew)
 				assert.Equal(td.t, td.idempotencyKey, call.IdempotencyKey)
 			},
 		},
@@ -375,6 +412,16 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				require.NoError(td.t, err)
 				assert.True(td.t, decimal.NewFromInt(0).Equal(account.Balance))
 
+				// Verify deposit was created with failed status
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.NoError(td.t, err)
+				// Проверяем, что ExtID установлен и его значение совпадает с ожидаемым
+				assert.NotNil(td.t, deposit.ExtID, "Deposit external ID should be set")
+				assert.Equal(td.t, td.depositExtID, *deposit.ExtID, "Deposit external ID should match")
+				assert.Equal(td.t, entity.DepositStatusFailed, deposit.Status, "Deposit should be in failed status")
+				assert.True(td.t, td.amount.Equal(deposit.Amount), "Deposit amount should match")
+				assert.Equal(td.t, td.currency, deposit.Currency, "Deposit currency should match")
+
 				// Verify deposit producer was not called (no notification for failed)
 				require.Equal(td.t, 0, len(td.depositProducerMock.SendDepositEventCalls()))
 			},
@@ -391,7 +438,7 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				td.savedAccount = helpers.CreateAccountWithParams(td.ctx, td.t, td.accountStore, account)
 				td.accountID = account.ID
 
-				// Используем полностью уникальный idempotencyKey для этого теста
+				// Use a completely unique idempotencyKey для этого теста
 				testSpecificIdempotencyKey := fmt.Sprintf("idempotency-test-%d-%s", time.Now().UnixNano(), uuid.NewString())
 				td.idempotencyKey = testSpecificIdempotencyKey
 
@@ -494,13 +541,59 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				return td.consumer.ProcessMessage(td.ctx, td.message)
 			},
 			then: func(td *TestData, err error) {
-				// Verify there is a validation error
-				require.Error(td.t, err)
-				assert.Contains(td.t, err.Error(), "ext_account_id is empty")
+				// Verify there is a specific validation error
+				require.Error(td.t, err, "Processing message with missing required fields should return an error")
+				assert.Contains(td.t, err.Error(), "ext_account_id is empty",
+					"Error should specifically mention the missing ext_account_id field")
 			},
 		},
 
-		// 8. Update pending deposit to failed
+		// 8. Non-existent account - deposit to unknown account
+		{
+			name: "Non-existent account - deposit to unknown account",
+			given: func(td *TestData) {
+				// Use a non-existent account external ID
+				nonExistentExtAccountID := fmt.Sprintf("non-existent-account-%s", uuid.NewString())
+
+				// Create a deposit event for a non-existent account
+				td.message = createDepositEvent(
+					td.depositExtID,
+					nonExistentExtAccountID, // Use non-existent account ID
+					td.currency,
+					td.amount,
+					td.newBalance,
+					partnerconsumerkafkav1.DepositStatus_DEPOSIT_STATUS_COMPLETED,
+					td.idempotencyKey,
+				)
+			},
+			when: func(td *TestData) error {
+				// Process the message
+				return td.consumer.ProcessMessage(td.ctx, td.message)
+			},
+			then: func(td *TestData, err error) {
+				// Verify there is an error about non-existent account
+				require.Error(td.t, err)
+				assert.Contains(td.t, err.Error(), "entity not found",
+					"Error should mention that account was not found")
+				assert.Contains(td.t, err.Error(), "failed to find account",
+					"Error should mention that account was not found")
+
+				// Verify no deposit was created
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				assert.Error(td.t, err, "Should return error when deposit doesn't exist")
+				assert.Nil(td.t, deposit, "No deposit should be created for non-existent account")
+
+				// Attempt to find by another method to be doubly sure
+				deposit, err = td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.Nil(td.t, deposit, "Deposit should be created for non-existent account")
+				require.Error(td.t, entity.ErrNotFound)
+
+				// Verify deposit producer was not called
+				require.Equal(td.t, 0, len(td.depositProducerMock.SendDepositEventCalls()))
+			},
+		},
+
+		// 9. Update pending deposit to failed
 		{
 			name: "Update pending deposit to failed",
 			given: func(td *TestData) {
@@ -513,7 +606,9 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 
 				// First create a pending deposit using fixture
 				deposit := fixtures.PredefinedDeposits.PendingWithAmount(td.accountID, td.amount)
-				deposit.ExtID = td.depositExtID
+				// Создаем копию строки для корректного присваивания указателю
+				extID := td.depositExtID
+				deposit.ExtID = &extID
 				deposit.Currency = td.currency
 
 				err := td.depositStore.Create(td.ctx, deposit)
@@ -543,6 +638,13 @@ func (s *DepositConsumerSuite) TestDepositConsumer() {
 				account, err := td.accountStore.GetByID(td.ctx, td.accountID)
 				require.NoError(td.t, err)
 				assert.True(td.t, decimal.NewFromInt(150).Equal(account.Balance))
+
+				// Verify deposit status was updated to failed
+				deposit, err := td.depositStore.GetByExtID(td.ctx, td.depositExtID)
+				require.NoError(td.t, err)
+				assert.Equal(td.t, entity.DepositStatusFailed, deposit.Status, "Deposit should be updated to failed status")
+				assert.True(td.t, td.amount.Equal(deposit.Amount), "Deposit amount should remain unchanged")
+				assert.Equal(td.t, td.currency, deposit.Currency, "Deposit currency should remain unchanged")
 
 				// Verify deposit producer was not called (no notification for failed)
 				require.Equal(td.t, 0, len(td.depositProducerMock.SendDepositEventCalls()))

@@ -34,7 +34,7 @@ type Kafka struct {
 	GroupID           string   `yaml:"group_id"`
 	AccountTopic      string   `yaml:"account_topic"`
 	DepositEventTopic string   `yaml:"deposit_event_topic"`
-	DepositFeedTopic  string   `yaml:"deposit_feed_topic"`
+	FeedTopic         string   `yaml:"feed_topic"`
 	OrderEventTopic   string   `yaml:"order_event_topic"`
 }
 
@@ -75,7 +75,7 @@ func LoadConfig() Config {
 			GroupID:           getEnv("KAFKA_GROUP_ID", "trading"),
 			AccountTopic:      getEnv("KAFKA_ACCOUNT_TOPIC", "origination.account"),
 			DepositEventTopic: getEnv("KAFKA_DEPOSIT_EVENT_TOPIC", "partnerconsumer.deposit"),
-			DepositFeedTopic:  getEnv("KAFKA_DEPOSIT_FEED_TOPIC", "feed.deposit"),
+			FeedTopic:         getEnv("KAFKA_DEPOSIT_FEED_TOPIC", "feed.deposit"),
 			OrderEventTopic:   getEnv("KAFKA_ORDER_EVENT_TOPIC", "partnerconsumer.order"),
 		},
 		Dependencies: DependenciesConfig{

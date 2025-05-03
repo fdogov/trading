@@ -9,6 +9,7 @@ type EventType string
 
 const (
 	EventTypeDeposit EventType = "DEPOSIT"
+	EventTypeOrder   EventType = "ORDER"
 )
 
 // Event represents a processing event in the system for idempotency

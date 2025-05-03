@@ -9,19 +9,20 @@ import (
 
 // Order represents a trading order
 type Order struct {
-	ID           uuid.UUID       `db:"id"`
-	UserID       string          `db:"user_id"`
-	AccountID    uuid.UUID       `db:"account_id"`
-	InstrumentID string          `db:"instrument_id"`
-	Amount       decimal.Decimal `db:"amount"`
-	Quantity     decimal.Decimal `db:"quantity"`
-	OrderType    OrderType       `db:"order_type"`
-	Side         OrderSide       `db:"side"`
-	Status       OrderStatus     `db:"status"`
-	Description  string          `db:"description"`
-	ExtID        string          `db:"ext_id"`
-	CreatedAt    time.Time       `db:"created_at"`
-	UpdatedAt    time.Time       `db:"updated_at"`
+	ID             uuid.UUID       `db:"id"`
+	UserID         string          `db:"user_id"`
+	AccountID      uuid.UUID       `db:"account_id"`
+	InstrumentID   string          `db:"instrument_id"`
+	Amount         decimal.Decimal `db:"amount"`
+	Quantity       decimal.Decimal `db:"quantity"`
+	OrderType      OrderType       `db:"order_type"`
+	Side           OrderSide       `db:"side"`
+	Status         OrderStatus     `db:"status"`
+	Description    string          `db:"description"`
+	ExtID          string          `db:"ext_id"`
+	IdempotencyKey string          `db:"idempotency_key"`
+	CreatedAt      time.Time       `db:"created_at"`
+	UpdatedAt      time.Time       `db:"updated_at"`
 }
 
 type OrderType string
@@ -61,6 +62,10 @@ func (o *Order) IsFailed() bool {
 
 func (o *Order) IsCancelled() bool {
 	return o.Status == OrderStatusCancelled
+}
+
+func (o *Order) IsProcessing() bool {
+	return o.Status == OrderStatusProcessing
 }
 
 func (o *Order) IsTerminal() bool {

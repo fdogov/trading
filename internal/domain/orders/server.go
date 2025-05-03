@@ -9,7 +9,7 @@ import (
 )
 
 type Server struct {
-	createOrderHandler *createOrderHandler
+	createOrderHandler *CreateOrderHandler
 	getOrderHandler    *getOrderHandler
 
 	tradingv1.UnimplementedOrderServiceServer
@@ -22,13 +22,13 @@ func NewServer(
 	partnerProxyOrderClient dependency.PartnerProxyOrderClient,
 ) *Server {
 	return &Server{
-		createOrderHandler: newCreateOrderHandler(orderStore, accountStore, dbTransactor, partnerProxyOrderClient),
+		createOrderHandler: NewCreateOrderHandler(orderStore, accountStore, dbTransactor, partnerProxyOrderClient),
 		getOrderHandler:    newGetOrderHandler(orderStore),
 	}
 }
 
 func (s *Server) CreateOrder(ctx context.Context, req *tradingv1.CreateOrderRequest) (*tradingv1.CreateOrderResponse, error) {
-	return s.createOrderHandler.handle(ctx, req)
+	return s.createOrderHandler.Handle(ctx, req)
 }
 
 func (s *Server) GetOrder(ctx context.Context, req *tradingv1.GetOrderRequest) (*tradingv1.GetOrderResponse, error) {
