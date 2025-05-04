@@ -1,0 +1,88 @@
+package gen
+
+import (
+	"context"
+	"errors"
+	"time"
+
+	"gitlab.diftech.org/test-demo/trading/internal/entity"
+	"gitlab.diftech.org/test-demo/trading/internal/logger"
+)
+
+// RetryDecorator implements retry logic with exponential backoff for RPC methods
+type {{ .InterfaceName }}RetryDecorator struct {
+	base        {{ .InterfaceName }}
+	maxAttempts int
+	initialWait time.Duration
+	factor      float64
+	logger      *logger.Logger
+}
+
+// New{{ .InterfaceName }}RetryDecorator creates a new retry decorator
+func New{{ .InterfaceName }}RetryDecorator(base {{ .InterfaceName }}, maxAttempts int, initialWait time.Duration, factor float64, logger *logger.Logger) *{{ .InterfaceName }}RetryDecorator {
+	return &{{ .InterfaceName }}RetryDecorator{
+		base:        base,
+		maxAttempts: maxAttempts,
+		initialWait: initialWait,
+		factor:      factor,
+		logger:      logger,
+	}
+}
+
+{{ range .Methods }}
+// {{ .Name }} implements retry logic for the base method
+func (d *{{ $.InterfaceName }}RetryDecorator) {{ .Declaration }} {
+	var lastErr error
+	wait := d.initialWait
+
+	for attempt := 1; attempt <= d.maxAttempts; attempt++ {
+		{{ if .HasResults }}{{ .ResultsNames }} := {{ end }}d.base.{{ .Call }}
+		
+		{{ if .HasError }}
+		if err == nil {
+			return {{ if .HasResults }}{{ .ResultsNames }}, {{ end }}nil
+		}
+		
+		lastErr = err
+		
+		// Check if error is not retriable
+		var nonRetriableErr *entity.NonRetriableError
+		if errors.As(err, &nonRetriableErr) {
+			d.logger.Error("Non-retriable error occurred, not retrying", 
+				"method", "{{ .Name }}", 
+				"error", err.Error(),
+				"attempt", attempt)
+			return {{ if .HasResults }}{{ .ResultsNames }}, {{ end }}err
+		}
+		
+		if attempt < d.maxAttempts {
+			d.logger.Warn("Operation failed, retrying", 
+				"method", "{{ .Name }}", 
+				"error", err.Error(),
+				"attempt", attempt, 
+				"maxAttempts", d.maxAttempts,
+				"waitTime", wait.String())
+			
+			select {
+			case <-ctx.Done():
+				return {{ if .HasResults }}{{ .ResultsNames }}, {{ end }}ctx.Err()
+			case <-time.After(wait):
+				// Proceed to next attempt
+			}
+			
+			// Exponential backoff
+			wait = time.Duration(float64(wait) * d.factor)
+		}
+		{{ else }}
+		return {{ if .HasResults }}{{ .ResultsNames }}{{ end }}
+		{{ end }}
+	}
+	
+	d.logger.Error("Operation failed after all retry attempts", 
+		"method", "{{ .Name }}", 
+		"error", lastErr.Error(),
+		"maxAttempts", d.maxAttempts)
+	
+	return {{ if .HasResults }}{{ .ResultsNames }}, {{ end }}lastErr
+}
+{{ end }}
