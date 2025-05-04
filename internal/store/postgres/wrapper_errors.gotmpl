@@ -1,0 +1,34 @@
+import (
+	"fmt"
+	"strings"
+	"time"
+	"context"
+	"errors"
+	
+	"github.com/fdogov/trading/internal/store"
+)
+
+{{ $decorator := (or .Vars.DecoratorName (printf "%sWrappedErrors" .Interface.Name)) }}
+// Ensure, that RepositoryMock does implement Repository.
+// If this is not the case, regenerate this file with moq.
+var _ {{.Interface.Type}} = &{{$decorator}}{}
+
+// {{$decorator}} implements {{.Interface.Type}} interface wrapped with Postgres errors handler
+type {{$decorator}} struct {
+  r {{.Interface.Type}}
+}
+
+// New{{$decorator}} takes several implementations of the {{.Interface.Type}} and returns an instance of {{.Interface.Type}}
+// which calls all implementations concurrently with given interval and returns first non-error response.
+func New{{$decorator}}(r {{.Interface.Type}}) {{$decorator}} {
+  return {{$decorator}}{r: r}
+}
+
+{{range $method := .Interface.Methods}}
+  // {{$method.Name}} implements {{$.Interface.Type}}
+  func (m {{$decorator}}) {{$method.Declaration}} {
+    {{$method.ResultsNames}} = m.r.{{$method.Call}}
+    err = store.HandlePGError(err)
+    return
+  }
+{{end}}

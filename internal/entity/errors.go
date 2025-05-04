@@ -23,4 +23,25 @@ var (
 
 	// ErrPartnerServiceUnavailable indicates an error when the partner service is unavailable
 	ErrPartnerServiceUnavailable = errors.New("partner service unavailable")
+
+	// ErrRetryExecution indicates an error when a retry execution is needed
+	ErrRetryExecution = errors.New("retry execution")
 )
+
+// NonRetriableError represents an error that should not be retried
+type NonRetriableError struct {
+	Err error
+}
+
+func (e *NonRetriableError) Error() string {
+	return e.Err.Error()
+}
+
+func (e *NonRetriableError) Unwrap() error {
+	return e.Err
+}
+
+// NewNonRetriableError wraps an error as non-retriable
+func NewNonRetriableError(err error) *NonRetriableError {
+	return &NonRetriableError{Err: err}
+}

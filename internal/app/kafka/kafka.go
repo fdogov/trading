@@ -46,7 +46,7 @@ func NewKafkaConsumers(
 	return &KafkaConsumers{
 		accountConsumer: accounts.NewAccountConsumer(accountStore, logger),
 		depositConsumer: finance.NewDepositConsumer(depositStore, accountStore, eventStore, depositProducer, partnerProxyAccountClient),
-		orderConsumer:   orders.NewOrderConsumer(orderStore, accountStore, eventStore, orderProducer),
+		orderConsumer:   orders.NewOrderConsumer(orderStore, accountStore, eventStore, orderProducer, partnerProxyAccountClient),
 		readers:         make([]*Reader, 0),
 		shutdownCh:      make(chan struct{}),
 		logger:          logger,

@@ -9,6 +9,20 @@ import (
 	"github.com/google/uuid"
 )
 
+//go:generate moq -rm -out gen/accounts_mock.go -pkg storegen -fmt goimports . AccountStore
+//go:generate gowrap gen -g -p github.com/fdogov/trading/internal/store -i AccountStore -t ./postgres/wrapper_errors.gotmpl -o gen/accounts_errors.go
+
+//go:generate moq -rm -out gen/orders_mock.go -pkg storegen -fmt goimports . OrderStore
+//go:generate gowrap gen -g -p github.com/fdogov/trading/internal/store -i OrderStore -t ./postgres/wrapper_errors.gotmpl -o gen/orders_errors.go
+
+//go:generate moq -rm -out gen/deposits_mock.go -pkg storegen -fmt goimports . DepositStore
+//go:generate gowrap gen -g -p github.com/fdogov/trading/internal/store -i DepositStore -t ./postgres/wrapper_errors.gotmpl -o gen/deposits_errors.go
+
+//go:generate moq -rm -out gen/events_mock.go -pkg storegen -fmt goimports . EventStore
+//go:generate gowrap gen -g -p github.com/fdogov/trading/internal/store -i EventStore -t ./postgres/wrapper_errors.gotmpl -o gen/events_errors.go
+
+//go:generate moq -rm -out gen/db_transactor_mock.go -pkg storegen -fmt goimports . DBTransactor
+
 // AccountStore defines the interface for working with account storage
 type AccountStore interface {
 	// Create creates a new account
@@ -37,7 +51,7 @@ type OrderStore interface {
 
 	// GetByExtID gets an order by external ID
 	GetByExtID(ctx context.Context, extID string) (*entity.Order, error)
-	
+
 	// GetByIdempotencyKey gets an order by idempotency key
 	GetByIdempotencyKey(ctx context.Context, key string) (*entity.Order, error)
 
@@ -70,7 +84,7 @@ type DepositStore interface {
 
 	// UpdateExternalData updates the external ID and status of a deposit
 	UpdateExternalData(ctx context.Context, id uuid.UUID, extID string, status entity.DepositStatus) error
-	
+
 	// GetByAccountID returns all deposits for a specific account
 	GetByAccountID(ctx context.Context, accountID uuid.UUID) ([]*entity.Deposit, error)
 }
